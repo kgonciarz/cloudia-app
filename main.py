@@ -38,6 +38,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+# ---------------------- DELETE EXISTING DELIVERY ----------------------
+def delete_existing_delivery(lot_number, exporter_name):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM deliveries
+        WHERE lot_number = ? AND exporter_name = ?
+    """, (lot_number, exporter_name))
+    conn.commit()
+    conn.close()
+
 # ---------------------- SAVE TO DB ----------------------
 def save_delivery_to_db(df):
     conn = sqlite3.connect(DB_FILE)
@@ -133,6 +144,8 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
+        lot_number = delivery_df['lot_number'].iloc[0]
+        delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
