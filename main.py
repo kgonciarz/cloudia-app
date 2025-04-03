@@ -144,7 +144,7 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        lot_number = delivery_df['lot_number'].iloc[0]
+        lot_number = str(delivery_df['lot_number'].iloc[0])
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
