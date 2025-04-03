@@ -199,3 +199,25 @@ if farmers_file and delivery_file and exporter_name:
                     )
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
+
+    # ---------------------- ADMIN PANEL ----------------------
+    with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
+        password = st.text_input("Enter admin password:", type="password")
+        if password == "123":
+            st.success("Access granted ✅")
+
+            # Load deliveries
+            conn = sqlite3.connect(DB_FILE)
+            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+            conn.close()
+
+            st.subheader("📦 Delivery History")
+            st.dataframe(deliveries_df)
+
+            st.subheader("📋 Approval History")
+            st.dataframe(approvals_df)
+
+        elif password:
+            st.error("Incorrect password 🚫")
+
