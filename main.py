@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -99,7 +98,7 @@ init_db()
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
-st.title("📋 CloudIA – Farmer Quota Verification System")
+st.title("\ud83d\udccb CloudIA – Farmer Quota Verification System")
 
 # Upload Files
 farmers_file = st.sidebar.file_uploader("Upload Farmer Database (with area_ha)", type=["xlsx"])
@@ -109,8 +108,16 @@ exporter_name = st.sidebar.text_input("Exporter Name")
 if farmers_file and delivery_file and exporter_name:
     farmers_df = pd.read_excel(farmers_file)
     farmers_df.columns = farmers_df.columns.str.lower()
+
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
+
+    # Rename common French column names to expected ones
+    delivery_df.rename(columns={
+        'farmer_id': 'coode producteur',
+        'poids net': 'poids net',
+        'n° du lot': 'lot'
+    }, inplace=True)
 
     if not {'farmer_id', 'area_ha'}.issubset(farmers_df.columns):
         st.error("Farmer database must include 'farmer_id' and 'area_ha'")
@@ -143,7 +150,7 @@ if farmers_file and delivery_file and exporter_name:
         merged_df = pd.merge(farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "✅ OK" if x <= 80 else ("🟠 Warning" if x <= 100 else "🔴 EXCEEDED")
+            lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
         st.write("### Quota Overview")
