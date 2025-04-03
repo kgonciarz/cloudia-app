@@ -98,7 +98,7 @@ init_db()
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
-st.title("\ud83d\udccb CloudIA – Farmer Quota Verification System")
+st.title("CloudIA - Farmer Quota Verification System")
 
 # Upload Files
 farmers_file = st.sidebar.file_uploader("Upload Farmer Database (with area_ha)", type=["xlsx"])
