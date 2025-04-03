@@ -147,17 +147,33 @@ if farmers_file and delivery_file and exporter_name:
         ''', conn)
         conn.close()
 
-        merged_df = pd.merge(farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
+        # Only include farmers from delivery file
+        filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
+
+        merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
             lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
+        # Detect problems
+        unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+        exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
+
+        # Display error info if any
+        if len(unknown_farmers) > 0:
+            st.error("🚫 The following farmers are NOT in the database:")
+            st.write(list(unknown_farmers))
+
+        if not exceeded_df.empty:
+            st.warning("⚠️ These farmers have exceeded their quota:")
+            st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
+
         st.write("### Quota Overview")
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-        all_ids_valid = all(delivery_df['farmer_id'].isin(farmers_df['farmer_id']))
-        any_quota_exceeded = any(merged_df['quota_used_pct'] > 100)
+        all_ids_valid = len(unknown_farmers) == 0
+        any_quota_exceeded = not exceeded_df.empty
 
         if all_ids_valid and not any_quota_exceeded:
             st.success("✅ File approved. All farmers valid and within quotas.")
@@ -183,5 +199,3 @@ if farmers_file and delivery_file and exporter_name:
                     )
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
-else:
-    st.info("Please upload both files and enter exporter name to begin.")
