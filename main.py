@@ -11,6 +11,7 @@ import os
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
 LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
+FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -100,15 +101,15 @@ st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
-# Upload Files
-farmers_file = st.sidebar.file_uploader("Upload Farmer Database (with area_ha)", type=["xlsx"])
+# Load static farmer database
+farmers_df = pd.read_excel(FARMER_DB_PATH)
+farmers_df.columns = farmers_df.columns.str.lower()
+
+# Upload delivery file
 delivery_file = st.sidebar.file_uploader("Upload Delivery File", type=["xlsx"])
 exporter_name = st.sidebar.text_input("Exporter Name")
 
-if farmers_file and delivery_file and exporter_name:
-    farmers_df = pd.read_excel(farmers_file)
-    farmers_df.columns = farmers_df.columns.str.lower()
-
+if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
@@ -119,9 +120,7 @@ if farmers_file and delivery_file and exporter_name:
         'n° du lot': 'lot'
     }, inplace=True)
 
-    if not {'farmer_id', 'area_ha'}.issubset(farmers_df.columns):
-        st.error("Farmer database must include 'farmer_id' and 'area_ha'")
-    elif not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
+    if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
     else:
         delivery_df = delivery_df.rename(columns={
@@ -147,20 +146,19 @@ if farmers_file and delivery_file and exporter_name:
         ''', conn)
         conn.close()
 
-        # Only include farmers from delivery file
+        # Filter to only relevant farmers
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
-
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
+
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
             lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
-        # Detect problems
+        # Check issues
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
-        # Display error info if any
         if len(unknown_farmers) > 0:
             st.error("🚫 The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
@@ -220,4 +218,5 @@ if farmers_file and delivery_file and exporter_name:
 
         elif password:
             st.error("Incorrect password 🚫")
-
+else:
+    st.info("Please upload the delivery file and enter exporter name to begin.")
