@@ -1,0 +1,6 @@
+streamlit
+pandas
+fpdf
+xlsxwriter
+openpyxl
+pillow
