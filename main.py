@@ -144,7 +144,7 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        lot_number = str(delivery_df['lot_number'].iloc[0])
+        lot_number = ", ".join(sorted(delivery_df['lot_number'].astype(str).unique()))
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
@@ -190,7 +190,7 @@ if delivery_file and exporter_name:
             st.success("✅ File approved. All farmers valid and within quotas.")
 
             if st.button("📄 Generate Approval PDF"):
-                lot_number = delivery_df['lot_number'].iloc[0]
+                lot_number = ", ".join(sorted(delivery_df['lot_number'].astype(str).unique()))
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
