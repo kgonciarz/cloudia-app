@@ -217,6 +217,17 @@ if delivery_file and exporter_name:
         if password == "123":
             st.success("Access granted ✅")
 
+            wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+            if wipe_password == "321":
+                if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM deliveries")
+                    cursor.execute("DELETE FROM approvals")
+                    conn.commit()
+                    conn.close()
+                    st.success("✅ Database has been cleared!")
+
             # Load deliveries
             conn = sqlite3.connect(DB_FILE)
             deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
