@@ -96,7 +96,7 @@ init_db()
 # Logo and Title
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
-st.markdown("### Approved by CloudIA", unsafe_allow_html=True)
+st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
 farmers_df = pd.read_excel(FARMER_DB_PATH)
@@ -142,6 +142,10 @@ if delivery_file and exporter_name:
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
+        # Fix all numeric columns
+        for col in ['area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct']:
+            merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce')
+
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
@@ -153,15 +157,7 @@ if delivery_file and exporter_name:
             st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-        st.write("Quota Overview")
-
-        # FIX UnicodeError: ensure all data are clean
-        for col in ['area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct']:
-            merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce').fillna(0)
-
-        merged_df['quota_status'] = merged_df['quota_status'].fillna('')
-        merged_df['farmer_id'] = merged_df['farmer_id'].fillna('')
-
+        st.write("### Quota Overview")
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
