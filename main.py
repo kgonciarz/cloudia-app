@@ -3,7 +3,6 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 from fpdf import FPDF
-from io import BytesIO
 from PIL import Image
 import os
 
@@ -154,14 +153,12 @@ if delivery_file and exporter_name:
             st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-            st.write("### Quota Overview")
+        st.write("### Quota Overview")
+        # CLEANER for dataframe
+        for col in merged_df.columns:
+            merged_df[col] = merged_df[col].apply(lambda x: str(x) if not isinstance(x, (int, float, str)) else x)
 
-# Only fix NaN issues before displaying
-            merged_df_display = merged_df.copy()
-            merged_df_display = merged_df_display.applymap(lambda x: str(x) if pd.isnull(x) else x)
-
-            st.dataframe(merged_df_display[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
-
+        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
