@@ -187,6 +187,14 @@ if delivery_file and exporter_name:
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
         # Ensure lot_number and exporter_name are valid
+        # ---------------------- DELETE EXISTING DELIVERY ----------------------
+        def delete_existing_delivery(lot_number, exporter_name):
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
+            conn.commit()
+            conn.close()
+
         lot_number = delivery_df['lot_number'].iloc[0]
         if lot_number and exporter_name:
             delete_existing_delivery(lot_number, exporter_name)
