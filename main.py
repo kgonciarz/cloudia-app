@@ -144,6 +144,7 @@ if delivery_file and exporter_name:
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
+        # Check issues
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
@@ -192,34 +193,26 @@ with st.expander("Admin Panel – View Delivery & Approval History"):
     if password == "123":
         st.success("Access granted!")
 
-        # Wipe password to clear data
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
             if st.button("Clear All Data"):
-                try:
-                    conn = sqlite3.connect(DB_FILE)
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM deliveries")
-                    cursor.execute("DELETE FROM approvals")
-                    conn.commit()
-                    conn.close()
-                    st.success("Database has been cleared!")
-                except Exception as e:
-                    st.error(f"Error clearing data: {e}")
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM deliveries")
+                cursor.execute("DELETE FROM approvals")
+                conn.commit()
+                conn.close()
+                st.success("Database has been cleared!")
 
-        try:
-            conn = sqlite3.connect(DB_FILE)
-            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-            conn.close()
+        conn = sqlite3.connect(DB_FILE)
+        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+        conn.close()
 
-            st.subheader("Delivery History")
-            st.dataframe(deliveries_df)
+        st.subheader("Delivery History")
+        st.dataframe(deliveries_df)
 
-            st.subheader("Approval History")
-            st.dataframe(approvals_df)
-
-        except Exception as e:
-            st.error(f"Error loading data from the database: {e}")
+        st.subheader("Approval History")
+        st.dataframe(approvals_df)
     elif password:
         st.error("Incorrect password")
