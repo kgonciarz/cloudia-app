@@ -109,7 +109,7 @@ init_db()
 # Logo and Title
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
-st.markdown("### Approved by CloudIA", unsafe_allow_html=True)
+st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
 # Load static farmer database
@@ -124,6 +124,7 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
+    # Rename common French column names to expected ones
     delivery_df.rename(columns={
         'farmer_id': 'coode producteur',
         'poids net': 'poids net',
@@ -143,7 +144,7 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        lot_number = str(delivery_df['lot_number'].iloc[0])
+        lot_number = delivery_df['lot_number'].iloc[0]
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
@@ -158,33 +159,35 @@ if delivery_file and exporter_name:
         ''', conn)
         conn.close()
 
+        # Filter to only relevant farmers
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED")
+            lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
+        # Check issues
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
         if len(unknown_farmers) > 0:
-            st.error("The following farmers are NOT in the database:")
+            st.error("🚫 The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
-            st.warning("These farmers have exceeded their quota:")
+            st.warning("⚠️ These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-        st.write("Quota Overview")
+        st.write("### Quota Overview")
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
 
         if all_ids_valid and not any_quota_exceeded:
-            st.success("File approved. All farmers valid and within quotas.")
+            st.success("✅ File approved. All farmers valid and within quotas.")
 
             if st.button("📄 Generate Approval PDF"):
                 lot_number = delivery_df['lot_number'].iloc[0]
@@ -200,42 +203,44 @@ if delivery_file and exporter_name:
 
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="Download Approval PDF",
+                        label="⬇️ Download Approval PDF",
                         data=f,
                         file_name=pdf_file,
                         mime="application/pdf"
                     )
         else:
-            st.warning("File not approved – check for unknown farmers or quota violations.")
+            st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
+
+    # ---------------------- ADMIN PANEL ----------------------
+    with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
+        password = st.text_input("Enter admin password:", type="password")
+        if password == "123":
+            st.success("Access granted ✅")
+
+            wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+            if wipe_password == "321":
+                if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM deliveries")
+                    cursor.execute("DELETE FROM approvals")
+                    conn.commit()
+                    conn.close()
+                    st.success("✅ Database has been cleared!")
+
+            # Load deliveries
+            conn = sqlite3.connect(DB_FILE)
+            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+            conn.close()
+
+            st.subheader("📦 Delivery History")
+            st.dataframe(deliveries_df)
+
+            st.subheader("📋 Approval History")
+            st.dataframe(approvals_df)
+
+        elif password:
+            st.error("Incorrect password 🚫")
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
-
-# ---------------------- ADMIN PANEL ----------------------
-with st.expander("Admin Panel - View Delivery and Approval History"):
-    password = st.text_input("Enter admin password:", type="password")
-    if password == "123":
-        st.success("Access granted")
-
-        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
-        if wipe_password == "321":
-            if st.button("Clear All Data"):
-                conn = sqlite3.connect(DB_FILE)
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM deliveries")
-                cursor.execute("DELETE FROM approvals")
-                conn.commit()
-                conn.close()
-                st.success("Database has been cleared")
-
-        conn = sqlite3.connect(DB_FILE)
-        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-        conn.close()
-
-        st.subheader("Delivery History")
-        st.dataframe(deliveries_df)
-
-        st.subheader("Approval History")
-        st.dataframe(approvals_df)
-    elif password:
-        st.error("Incorrect password")
