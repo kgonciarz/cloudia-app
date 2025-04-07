@@ -155,6 +155,7 @@ if delivery_file and exporter_name:
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
+        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
