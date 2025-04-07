@@ -212,47 +212,52 @@ if delivery_file and exporter_name:
             unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
             exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
-            if len(unknown_farmers) > 0:
-                st.error("The following farmers are NOT in the database:")
-                st.write(list(unknown_farmers))
+        if len(unknown_farmers) > 0:
+            st.error("The following farmers are NOT in the database:")
+            st.write(list(unknown_farmers))
 
-            if not exceeded_df.empty:
-                st.warning("These farmers have exceeded their quota:")
-                st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
+        if not exceeded_df.empty:
+            st.warning("These farmers have exceeded their quota:")
+            st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-            st.write("### Quota Overview")
-            merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
-            st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
+        st.write("### Quota Overview")
+        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-            all_ids_valid = len(unknown_farmers) == 0
-            any_quota_exceeded = not exceeded_df.empty
+        all_ids_valid = len(unknown_farmers) == 0
+        any_quota_exceeded = not exceeded_df.empty
 
-            if all_ids_valid and not any_quota_exceeded:
-                st.success(translations[st.session_state.language]["success_file_approved"])
+        if all_ids_valid and not any_quota_exceeded:
+            st.success(translations[st.session_state.language]["success_file_approved"])
 
-                if st.button(translations[st.session_state.language]["button_generate_pdf"]):
-                    total_kg = delivery_df['delivered_kg'].sum()
-                    farmer_count = delivery_df['farmer_id'].nunique()
-                    pdf_file = generate_pdf_confirmation(
-                        lot_numbers=delivery_df['lot_number'].unique(),  # Pass all lot numbers
-                        exporter_name=exporter_name,
-                        farmer_count=farmer_count,
-                        total_kg=total_kg,
-                        logo_path=LOGO_PATH
+            if st.button(translations[st.session_state.language]["button_generate_pdf"]):
+                total_kg = delivery_df['delivered_kg'].sum()
+                farmer_count = delivery_df['farmer_id'].nunique()
+
+        # Get the unique lot numbers
+                lot_numbers = delivery_df['lot_number'].unique()  # Ensure lot numbers are in the right format (list/array)
+
+                pdf_file = generate_pdf_confirmation(
+                    lot_numbers=lot_numbers,  # Pass lot numbers as a list
+                    exporter_name=exporter_name,
+                    farmer_count=farmer_count,
+                    total_kg=total_kg,
+                    logo_path=LOGO_PATH
+                )
+
+                with open(pdf_file, "rb") as f:
+                    st.download_button(
+                        label=translations[st.session_state.language]["button_download_pdf"],
+                        data=f,
+                        file_name=pdf_file,
+                        mime="application/pdf"
                     )
-
-                    with open(pdf_file, "rb") as f:
-                        st.download_button(
-                            label=translations[st.session_state.language]["button_download_pdf"],
-                            data=f,
-                            file_name=pdf_file,
-                            mime="application/pdf"
-                        )
-            else:
-                st.warning(translations[st.session_state.language]["warning_file_not_approved"])
-
         else:
-            st.error("❌ Missing lot number or exporter name.")
+            st.warning(translations[st.session_state.language]["warning_file_not_approved"])
+
+else:
+    st.error("❌ Missing lot number or exporter name.")
+
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander(translations[st.session_state.language]["admin_panel"]):
