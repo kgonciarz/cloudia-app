@@ -74,7 +74,7 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     conn.close()
 
 # ---------------------- PDF GENERATOR ----------------------
-def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg, logo_path=None):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -90,7 +90,11 @@ def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg,
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     pdf.ln(10)
     pdf.cell(200, 10, txt=f"Date: {now}", ln=True)
-    pdf.cell(200, 10, txt=f"Lot Number: {lot_number}", ln=True)
+    
+    # Join all lot numbers into a single string
+    lot_numbers_str = ", ".join(lot_numbers)
+    pdf.cell(200, 10, txt=f"Lot Numbers: {lot_numbers_str}", ln=True)
+
     pdf.cell(200, 10, txt=f"Exporter: {exporter_name}", ln=True)
     pdf.cell(200, 10, txt=f"Approved Farmers: {farmer_count}", ln=True)
     pdf.cell(200, 10, txt=f"Total Delivered (kg): {total_kg}", ln=True)
@@ -98,10 +102,10 @@ def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg,
     pdf.ln(10)
     pdf.cell(200, 10, txt="All farmer IDs are valid and within quota limits.", ln=True)
 
-    file_name = f"approval_{lot_number}_{exporter_name}.pdf"
+    file_name = f"approval_{'_'.join(lot_numbers)}_{exporter_name}.pdf"
     pdf.output(file_name)
 
-    save_approval_to_db(lot_number, exporter_name, file_name)
+    save_approval_to_db(lot_numbers_str, exporter_name, file_name)  # Store multiple lot numbers in the DB
     return file_name
 
 # ---------------------- STREAMLIT UI ----------------------
