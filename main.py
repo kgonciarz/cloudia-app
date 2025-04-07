@@ -90,6 +90,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+# ---------------------- DELETE EXISTING DELIVERY ----------------------
+def delete_existing_delivery(lot_number, exporter_name):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
+    conn.commit()
+    conn.close()
+
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
@@ -192,14 +200,6 @@ if delivery_file and exporter_name:
         if lot_number and exporter_name:  # Only proceed if both are valid
             delete_existing_delivery(lot_number, exporter_name)
             save_delivery_to_db(delivery_df)
-
-        # ---------------------- DELETE EXISTING DELIVERY ----------------------
-        def delete_existing_delivery(lot_number, exporter_name):
-            conn = sqlite3.connect(DB_FILE)
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
-            conn.commit()
-            conn.close()
 
         lot_number = delivery_df['lot_number'].iloc[0]
         if lot_number and exporter_name:
