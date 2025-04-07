@@ -3,14 +3,15 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 from fpdf import FPDF
+from io import BytesIO
 from PIL import Image
 import os
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"
-FARMER_DB_PATH = "farmer_database.xlsx"
+LOGO_PATH = "cloudia_logo.png"  # Logo file
+FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -136,15 +137,12 @@ if delivery_file and exporter_name:
         total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
         conn.close()
 
+        # Filter to only relevant farmers
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
-
-        # Fix all numeric columns
-        for col in ['area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct']:
-            merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce')
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
@@ -158,6 +156,7 @@ if delivery_file and exporter_name:
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
+        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
@@ -193,26 +192,34 @@ with st.expander("Admin Panel – View Delivery & Approval History"):
     if password == "123":
         st.success("Access granted!")
 
+        # Wipe password to clear data
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
             if st.button("Clear All Data"):
-                conn = sqlite3.connect(DB_FILE)
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM deliveries")
-                cursor.execute("DELETE FROM approvals")
-                conn.commit()
-                conn.close()
-                st.success("Database has been cleared!")
+                try:
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM deliveries")
+                    cursor.execute("DELETE FROM approvals")
+                    conn.commit()
+                    conn.close()
+                    st.success("Database has been cleared!")
+                except Exception as e:
+                    st.error(f"Error clearing data: {e}")
 
-        conn = sqlite3.connect(DB_FILE)
-        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-        conn.close()
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+            conn.close()
 
-        st.subheader("Delivery History")
-        st.dataframe(deliveries_df)
+            st.subheader("Delivery History")
+            st.dataframe(deliveries_df)
 
-        st.subheader("Approval History")
-        st.dataframe(approvals_df)
+            st.subheader("Approval History")
+            st.dataframe(approvals_df)
+
+        except Exception as e:
+            st.error(f"Error loading data from the database: {e}")
     elif password:
         st.error("Incorrect password")
