@@ -177,14 +177,14 @@ if delivery_file and exporter_name:
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "\u2705 OK" if x <= 80 else ("\ud83d\udea0 Warning" if x <= 100 else "\ud83d\udd34 EXCEEDED")
+            lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
         if len(unknown_farmers) > 0:
-            st.error("\ud83d\udeab The following farmers are NOT in the database:")
+            st.error("🚫 The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
@@ -200,7 +200,7 @@ if delivery_file and exporter_name:
         if all_ids_valid and not any_quota_exceeded:
             st.success("\u2705 File approved. All farmers valid and within quotas.")
 
-            if st.button("\ud83d\udcc4 Generate Approval PDF"):
+            if st.button("📄 Generate Approval PDF"):
                 lot_number = approval_lot_numbers
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
@@ -244,10 +244,10 @@ with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
         approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
         conn.close()
 
-        st.subheader("\ud83d\udce6 Delivery History")
+        st.subheader("📦 Delivery History")
         st.dataframe(deliveries_df)
 
-        st.subheader("\ud83d\udccb Approval History")
+        st.subheader("📋 Approval History")
         st.dataframe(approvals_df)
 
     elif password:
