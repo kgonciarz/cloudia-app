@@ -71,7 +71,7 @@ if language == "English":
 else:
     st.session_state.language = "fr"
 
-# ---------------------- DATABASE INIT ----------------------
+# ---------------------- DATABASE & UTILS ----------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -90,15 +90,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ---------------------- DELETE EXISTING DELIVERY ----------------------
-def delete_existing_delivery(lot_number, exporter_name):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
-    conn.commit()
-    conn.close()
-
-# ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
     farmers_df = pd.read_excel(FARMER_DB_PATH)
@@ -111,7 +102,32 @@ def load_delivery_data(delivery_file):
     delivery_df.columns = delivery_df.columns.str.lower()
     return delivery_df
 
-# ---------------------- PDF GENERATOR ----------------------
+def delete_existing_delivery(lot_number, exporter_name):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
+    conn.commit()
+    conn.close()
+
+def save_delivery_to_db(delivery_df):
+    conn = sqlite3.connect(DB_FILE)
+    delivery_df.to_sql('deliveries', conn, if_exists='append', index=False)
+    conn.close()
+
+def save_approval_to_db(lot_numbers_str, exporter_name, file_name):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute("INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name) VALUES (?, ?, ?, ?, ?)",
+                   (timestamp, lot_numbers_str, exporter_name, "CloudIA", file_name))
+    conn.commit()
+    conn.close()
+
+def clean_text(value):
+    if isinstance(value, str):
+        return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+    return value
+
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None):
     pdf = FPDF()
     pdf.add_page()
@@ -124,15 +140,11 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.set_font("Arial", 'B', 14)
     pdf.cell(200, 10, txt=translations[st.session_state.language]["button_generate_pdf"], ln=True, align='C')
 
-    pdf.set_font("Arial", size=12)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     pdf.ln(10)
     pdf.cell(200, 10, txt=f"Date: {now}", ln=True)
-    
-    # Join all lot numbers into a single string
-    lot_numbers_str = ", ".join([str(x) for x in lot_numbers])  # Convert to string for consistency
+    lot_numbers_str = ", ".join([str(x) for x in lot_numbers])
     pdf.cell(200, 10, txt=f"Lot Numbers: {lot_numbers_str}", ln=True)
-
     pdf.cell(200, 10, txt=f"Exporter: {exporter_name}", ln=True)
     pdf.cell(200, 10, txt=f"Approved Farmers: {farmer_count}", ln=True)
     pdf.cell(200, 10, txt=f"Total Delivered (kg): {total_kg}", ln=True)
@@ -140,140 +152,94 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.ln(10)
     pdf.cell(200, 10, txt="All farmer IDs are valid and within quota limits.", ln=True)
 
-    file_name = f"approval_{'_'.join(map(str, lot_numbers))}_{exporter_name}.pdf"  # Ensure correct formatting
+    file_name = f"approval_{'_'.join(map(str, lot_numbers))}_{exporter_name}.pdf"
     pdf.output(file_name)
-
-    save_approval_to_db(lot_numbers_str, exporter_name, file_name)  # Store multiple lot numbers in the DB
+    save_approval_to_db(lot_numbers_str, exporter_name, file_name)
     return file_name
 
-# ---------------------- STREAMLIT UI ----------------------
+# ---------------------- APP ----------------------
+
 init_db()
 
-# Logo and Title
+if "language" not in st.session_state:
+    st.session_state.language = "en"
+
+language = st.selectbox("Select Language", ["English", "Français"], key="language_selector", index=0 if st.session_state.language == "en" else 1)
+if language == "English":
+    st.session_state.language = "en"
+else:
+    st.session_state.language = "fr"
+
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
 st.markdown(f"### {translations[st.session_state.language]['subtitle']}", unsafe_allow_html=True)
 st.title(translations[st.session_state.language]["title"])
 
-# ---------------------- LOAD FARMER DATABASE ----------------------
-farmers_df = pd.read_excel(FARMER_DB_PATH)
-farmers_df.columns = farmers_df.columns.str.lower()
+farmers_df = load_farmer_data()
 
-# ---------------------- UPLOAD DELIVERY FILE ----------------------
 delivery_file = st.sidebar.file_uploader(translations[st.session_state.language]["upload_delivery_file"], type=["xlsx"])
 exporter_name = st.sidebar.text_input(translations[st.session_state.language]["exporter_name"])
 
-# Only run the following logic if both file and exporter name are provided
 if delivery_file and exporter_name:
-    delivery_df = pd.read_excel(delivery_file)
-    delivery_df.columns = delivery_df.columns.str.lower()
+    delivery_df = load_delivery_data(delivery_file)
+    delivery_df.rename(columns={'coode producteur': 'farmer_id', 'poids net': 'delivered_kg', 'n° du lot': 'lot_number'}, inplace=True)
 
-    # Rename columns to match expected format
-    delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
-
-    if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
+    if not {'farmer_id', 'delivered_kg', 'lot_number'}.issubset(delivery_df.columns):
         st.error(translations[st.session_state.language]["error_invalid_file"])
     else:
-        # Standardize column names
-        delivery_df = delivery_df.rename(columns={
-            'coode producteur': 'farmer_id',
-            'poids net': 'delivered_kg',
-            'lot': 'lot_number'
-        })
-
-        # Clean all text fields and remove any non-UTF-8 characters
-        def clean_text(value):
-            if isinstance(value, str):
-                return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
-            return value
-
-        # Apply the cleaning function
         delivery_df = delivery_df.applymap(clean_text)
-
-        # Add exporter name and process the file
         delivery_df['exporter_name'] = exporter_name
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        # Ensure lot_number and exporter_name are valid
         lot_number = delivery_df['lot_number'].iloc[0]
-        if lot_number and exporter_name:  # Only proceed if both are valid
-            delete_existing_delivery(lot_number, exporter_name)
-            save_delivery_to_db(delivery_df)
+        delete_existing_delivery(lot_number, exporter_name)
+        save_delivery_to_db(delivery_df)
 
-        lot_number = delivery_df['lot_number'].iloc[0]
-        if lot_number and exporter_name:
-            delete_existing_delivery(lot_number, exporter_name)
-            save_delivery_to_db(delivery_df)
+        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
+        farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
-            # Calculate max quota for farmers
-            farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-            farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
+        conn = sqlite3.connect(DB_FILE)
+        total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
+        conn.close()
 
-            conn = sqlite3.connect(DB_FILE)
-            total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
-            conn.close()
+        filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
+        merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
-            # Merge farmers with deliveries
-            filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
-            merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
+        merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
+        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
-            # Calculate quota used percentage and status
-            merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
-            merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
-
-            # Check for issues
-            unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-            exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
+        unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+        exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
         if len(unknown_farmers) > 0:
             st.error("The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
-            st.warning("These farmers have exceeded their quota:")
+            st.warning(translations[st.session_state.language]["warning_exceeded_quota"])
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
-        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-        all_ids_valid = len(unknown_farmers) == 0
-        any_quota_exceeded = not exceeded_df.empty
-
-        if all_ids_valid and not any_quota_exceeded:
+        if len(unknown_farmers) == 0 and exceeded_df.empty:
             st.success(translations[st.session_state.language]["success_file_approved"])
-
             if st.button(translations[st.session_state.language]["button_generate_pdf"]):
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
-
-        # Get the unique lot numbers
-                lot_numbers = delivery_df['lot_number'].unique()  # Ensure lot numbers are in the right format (list/array)
-
-                pdf_file = generate_pdf_confirmation(
-                    lot_numbers=lot_numbers,  # Pass lot numbers as a list
-                    exporter_name=exporter_name,
-                    farmer_count=farmer_count,
-                    total_kg=total_kg,
-                    logo_path=LOGO_PATH
-                )
-
+                lot_numbers = delivery_df['lot_number'].unique()
+                pdf_file = generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=LOGO_PATH)
                 with open(pdf_file, "rb") as f:
-                    st.download_button(
-                        label=translations[st.session_state.language]["button_download_pdf"],
-                        data=f,
-                        file_name=pdf_file,
-                        mime="application/pdf"
-                    )
+                    st.download_button(label=translations[st.session_state.language]["button_download_pdf"], data=f, file_name=pdf_file, mime="application/pdf")
         else:
             st.warning(translations[st.session_state.language]["warning_file_not_approved"])
 
 elif delivery_file or exporter_name:
     st.error("❌ Missing lot number or exporter name.")
 
-
 # ---------------------- ADMIN PANEL ----------------------
+
 with st.expander(translations[st.session_state.language]["admin_panel"]):
     password = st.text_input(translations[st.session_state.language]["admin_password"], type="password")
     if password == "123":
