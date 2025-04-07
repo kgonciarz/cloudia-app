@@ -220,7 +220,7 @@ if delivery_file and exporter_name:
                         mime="application/pdf"
                     )
         else:
-            st.warning("\ud83d\udeab File not approved – check for unknown farmers or quota violations.")
+            st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
