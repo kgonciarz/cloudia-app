@@ -100,11 +100,11 @@ st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
-# Load farmer database
+# ---------------------- LOAD FARMER DATABASE ----------------------
 farmers_df = pd.read_excel(FARMER_DB_PATH)
 farmers_df.columns = farmers_df.columns.str.lower()
 
-# Upload delivery file
+# ---------------------- UPLOAD DELIVERY FILE ----------------------
 delivery_file = st.sidebar.file_uploader("Upload Delivery File", type=["xlsx"])
 exporter_name = st.sidebar.text_input("Exporter Name")
 
@@ -112,22 +112,23 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    # Ensure columns are renamed correctly
+    # Rename columns to match expected format
     delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
     else:
-        # Rename columns to standardize
+        # Standardize column names
         delivery_df = delivery_df.rename(columns={
             'coode producteur': 'farmer_id',
             'poids net': 'delivered_kg',
             'lot': 'lot_number'
         })
 
-        # Apply UTF-8 encoding
+        # Apply UTF-8 encoding to all string columns (skip non-string columns)
         delivery_df = delivery_df.applymap(lambda x: str(x).encode('utf-8', 'ignore').decode('utf-8') if isinstance(x, str) else x)
 
+        # Add exporter name and process the file
         delivery_df['exporter_name'] = exporter_name
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
@@ -185,6 +186,7 @@ if delivery_file and exporter_name:
                     total_kg=total_kg,
                     logo_path=LOGO_PATH
                 )
+
                 with open(pdf_file, "rb") as f:
                     st.download_button(
                         label="Download Approval PDF",
