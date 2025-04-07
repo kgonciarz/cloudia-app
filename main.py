@@ -206,11 +206,11 @@ if delivery_file and exporter_name:
             st.success("✅ File approved. All farmers valid and within quotas.")
 
             if st.button("📄 Generate Approval PDF"):
-                lot_number = delivery_df['lot_number'].iloc[0]
+                lot_number = approval_lot_numbers
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
-                    lot_number=approval_lot_numbers,
+                    lot_number=lot_number,
                     exporter_name=exporter_name,
                     farmer_count=farmer_count,
                     total_kg=total_kg,
@@ -226,9 +226,9 @@ if delivery_file and exporter_name:
                     )
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
-
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
+
 
 
 
