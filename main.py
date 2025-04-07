@@ -230,7 +230,7 @@ with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
 
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
-            if st.button("\ud83e\uddf9 Clear All Data (Deliveries + Approvals)"):
+            if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
                 conn = sqlite3.connect(DB_FILE)
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM deliveries")
