@@ -226,8 +226,10 @@ if delivery_file and exporter_name:
                     )
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
+
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
+
 
 
     # ---------------------- ADMIN PANEL ----------------------
