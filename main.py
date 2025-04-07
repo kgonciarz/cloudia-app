@@ -6,7 +6,7 @@ from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
-
+st.legacy_caching.clear_cache()
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
