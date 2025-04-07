@@ -112,14 +112,11 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    # Rename columns to match expected ones
     delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
-    # Check for required columns
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
     else:
-        # Map columns to match
         delivery_df = delivery_df.rename(columns={
             'coode producteur': 'farmer_id',
             'poids net': 'delivered_kg',
@@ -134,7 +131,6 @@ if delivery_file and exporter_name:
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
-        # Merge with farmers' data
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
         farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
@@ -142,14 +138,12 @@ if delivery_file and exporter_name:
         total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
         conn.close()
 
-        # Filter and merge with quota information
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
-        # Check for unknown farmers and exceeded quotas
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
@@ -161,12 +155,10 @@ if delivery_file and exporter_name:
             st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-        # Display quota overview
         st.write("### Quota Overview")
         merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-        # Approve or reject the file based on the checks
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
 
@@ -192,3 +184,33 @@ if delivery_file and exporter_name:
                     )
         else:
             st.warning("File not approved – check for unknown farmers or quota violations.")
+
+# ---------------------- ADMIN PANEL ----------------------
+with st.expander("Admin Panel – View Delivery & Approval History"):
+    password = st.text_input("Enter admin password:", type="password")
+    if password == "123":
+        st.success("Access granted!")
+
+        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+        if wipe_password == "321":
+            if st.button("Clear All Data"):
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM deliveries")
+                cursor.execute("DELETE FROM approvals")
+                conn.commit()
+                conn.close()
+                st.success("Database has been cleared!")
+
+        conn = sqlite3.connect(DB_FILE)
+        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+        conn.close()
+
+        st.subheader("Delivery History")
+        st.dataframe(deliveries_df)
+
+        st.subheader("Approval History")
+        st.dataframe(approvals_df)
+    elif password:
+        st.error("Incorrect password")
