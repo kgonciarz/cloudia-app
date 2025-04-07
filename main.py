@@ -13,6 +13,64 @@ DB_FILE = "quota.db"
 LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
 FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
+# ---------------------- TRANSLATION DICTIONARY ----------------------
+translations = {
+    "en": {
+        "title": "CloudIA - Farmer Quota Verification System",
+        "subtitle": "Approved by **CloudIA**",
+        "upload_delivery_file": "Upload Delivery File",
+        "exporter_name": "Exporter Name",
+        "error_invalid_file": "Delivery file must include 'farmer_id', 'poids net', 'lot'",
+        "error_missing_values": "❌ Error: Missing values found in fields:",
+        "error_empty_farmer_id": "❌ Error: Some farmer_id fields are empty.",
+        "warning_exceeded_quota": "⚠️ These farmers have exceeded their quota:",
+        "warning_file_not_approved": "🚫 File not approved – check for unknown farmers or quota violations.",
+        "success_file_approved": "✅ File approved. All farmers valid and within quotas.",
+        "button_generate_pdf": "📄 Generate Approval PDF",
+        "button_download_pdf": "⬇️ Download Approval PDF",
+        "admin_panel": "🔐 Admin Panel – View Delivery & Approval History",
+        "admin_password": "Enter admin password:",
+        "admin_access_granted": "Access granted ✅",
+        "incorrect_password": "Incorrect password 🚫",
+        "clear_all_data": "🧹 Clear All Data (Deliveries + Approvals)",
+        "database_cleared": "✅ Database has been cleared!"
+    },
+    "fr": {
+        "title": "CloudIA - Système de Vérification de Quotas Agricoles",
+        "subtitle": "Approuvé par **CloudIA**",
+        "upload_delivery_file": "Télécharger le fichier de livraison",
+        "exporter_name": "Nom de l'exportateur",
+        "error_invalid_file": "Le fichier de livraison doit inclure 'farmer_id', 'poids net', 'lot'",
+        "error_missing_values": "❌ Erreur : Des valeurs manquantes ont été trouvées dans les champs:",
+        "error_empty_farmer_id": "❌ Erreur : Certains champs 'farmer_id' sont vides.",
+        "warning_exceeded_quota": "⚠️ Ces producteurs ont dépassé leur quota :",
+        "warning_file_not_approved": "🚫 Fichier non approuvé – vérifiez les producteurs inconnus ou les violations de quota.",
+        "success_file_approved": "✅ Fichier approuvé. Tous les producteurs sont valides et respectent les quotas.",
+        "button_generate_pdf": "📄 Générer le PDF d'approbation",
+        "button_download_pdf": "⬇️ Télécharger le PDF d'approbation",
+        "admin_panel": "🔐 Panneau d'Admin – Historique des Livraisons et des Approbations",
+        "admin_password": "Entrez le mot de passe admin :",
+        "admin_access_granted": "Accès accordé ✅",
+        "incorrect_password": "Mot de passe incorrect 🚫",
+        "clear_all_data": "🧹 Effacer toutes les données (Livraisons + Approbations)",
+        "database_cleared": "✅ La base de données a été effacée !"
+    }
+}
+
+# ---------------------- SETUP LANGUAGE ----------------------
+# Set the language based on user input
+if "language" not in st.session_state:
+    st.session_state.language = "en"  # Default language is English
+
+# Language selector at the top-right corner
+language = st.selectbox("Select Language", ["English", "Français"], key="language_selector", index=0 if st.session_state.language == "en" else 1)
+
+# Update the session state if the user changes the language
+if language == "English":
+    st.session_state.language = "en"
+else:
+    st.session_state.language = "fr"
+
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -45,34 +103,6 @@ def load_delivery_data(delivery_file):
     delivery_df.columns = delivery_df.columns.str.lower()
     return delivery_df
 
-# ---------------------- DELETE EXISTING DELIVERY ----------------------
-def delete_existing_delivery(lot_number, exporter_name):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
-    conn.commit()
-    conn.close()
-
-# ---------------------- SAVE TO DB ----------------------
-def save_delivery_to_db(df):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    for _, row in df.iterrows():
-        cursor.execute('''REPLACE INTO deliveries (lot_number, exporter_name, farmer_id, delivered_kg)
-                        VALUES (?, ?, ?, ?)''', (row['lot_number'], row['exporter_name'], row['farmer_id'], row['delivered_kg']))
-    conn.commit()
-    conn.close()
-
-# ---------------------- SAVE APPROVAL ----------------------
-def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute('''INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name)
-                    VALUES (?, ?, ?, ?, ?)''', (timestamp, lot_number, exporter_name, approved_by, file_name))
-    conn.commit()
-    conn.close()
-
 # ---------------------- PDF GENERATOR ----------------------
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None):
     pdf = FPDF()
@@ -84,7 +114,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 
     pdf.ln(20)
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt="Delivery Approval Confirmation", ln=True, align='C')
+    pdf.cell(200, 10, txt=translations[st.session_state.language]["button_generate_pdf"], ln=True, align='C')
 
     pdf.set_font("Arial", size=12)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -114,16 +144,16 @@ init_db()
 # Logo and Title
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
-st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
-st.title("CloudIA - Farmer Quota Verification System")
+st.markdown(f"### {translations[st.session_state.language]['subtitle']}", unsafe_allow_html=True)
+st.title(translations[st.session_state.language]["title"])
 
 # ---------------------- LOAD FARMER DATABASE ----------------------
 farmers_df = pd.read_excel(FARMER_DB_PATH)
 farmers_df.columns = farmers_df.columns.str.lower()
 
 # ---------------------- UPLOAD DELIVERY FILE ----------------------
-delivery_file = st.sidebar.file_uploader("Upload Delivery File", type=["xlsx"])
-exporter_name = st.sidebar.text_input("Exporter Name")
+delivery_file = st.sidebar.file_uploader(translations[st.session_state.language]["upload_delivery_file"], type=["xlsx"])
+exporter_name = st.sidebar.text_input(translations[st.session_state.language]["exporter_name"])
 
 if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
@@ -133,7 +163,7 @@ if delivery_file and exporter_name:
     delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
-        st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
+        st.error(translations[st.session_state.language]["error_invalid_file"])
     else:
         # Standardize column names
         delivery_df = delivery_df.rename(columns={
@@ -197,9 +227,9 @@ if delivery_file and exporter_name:
         any_quota_exceeded = not exceeded_df.empty
 
         if all_ids_valid and not any_quota_exceeded:
-            st.success("File approved. All farmers valid and within quotas.")
+            st.success(translations[st.session_state.language]["success_file_approved"])
 
-            if st.button("Generate Approval PDF"):
+            if st.button(translations[st.session_state.language]["button_generate_pdf"]):
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
@@ -212,30 +242,30 @@ if delivery_file and exporter_name:
 
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="Download Approval PDF",
+                        label=translations[st.session_state.language]["button_download_pdf"],
                         data=f,
                         file_name=pdf_file,
                         mime="application/pdf"
                     )
         else:
-            st.warning("File not approved – check for unknown farmers or quota violations.")
+            st.warning(translations[st.session_state.language]["warning_file_not_approved"])
 
 # ---------------------- ADMIN PANEL ----------------------
-with st.expander("Admin Panel – View Delivery & Approval History"):
-    password = st.text_input("Enter admin password:", type="password")
+with st.expander(translations[st.session_state.language]["admin_panel"]):
+    password = st.text_input(translations[st.session_state.language]["admin_password"], type="password")
     if password == "123":
-        st.success("Access granted!")
+        st.success(translations[st.session_state.language]["admin_access_granted"])
 
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
-            if st.button("Clear All Data"):
+            if st.button(translations[st.session_state.language]["clear_all_data"]):
                 conn = sqlite3.connect(DB_FILE)
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM deliveries")
                 cursor.execute("DELETE FROM approvals")
                 conn.commit()
                 conn.close()
-                st.success("Database has been cleared!")
+                st.success(translations[st.session_state.language]["database_cleared"])
 
         conn = sqlite3.connect(DB_FILE)
         deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
@@ -248,4 +278,4 @@ with st.expander("Admin Panel – View Delivery & Approval History"):
         st.subheader("Approval History")
         st.dataframe(approvals_df)
     elif password:
-        st.error("Incorrect password")
+        st.error(translations[st.session_state.language]["incorrect_password"])
