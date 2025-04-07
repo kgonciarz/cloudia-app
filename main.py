@@ -6,7 +6,7 @@ from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
-st.legacy_caching.clear_cache()
+
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
@@ -31,6 +31,19 @@ def init_db():
         file_name TEXT)''')
     conn.commit()
     conn.close()
+
+# ---------------------- CACHE DATA ----------------------
+@st.cache_data
+def load_farmer_data():
+    farmers_df = pd.read_excel(FARMER_DB_PATH)
+    farmers_df.columns = farmers_df.columns.str.lower()
+    return farmers_df
+
+@st.cache_data
+def load_delivery_data(delivery_file):
+    delivery_df = pd.read_excel(delivery_file)
+    delivery_df.columns = delivery_df.columns.str.lower()
+    return delivery_df
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
