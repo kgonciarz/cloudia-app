@@ -127,7 +127,7 @@ if delivery_file and exporter_name:
     delivery_df.rename(columns={
         'farmer_id': 'coode producteur',
         'poids net': 'poids net',
-        'n\u00b0 du lot': 'lot'
+        'n° du lot': 'lot'
     }, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
