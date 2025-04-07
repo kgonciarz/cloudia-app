@@ -162,7 +162,7 @@ if delivery_file and exporter_name:
 
         # ---------------------- CONTINUE NORMAL LOGIC ----------------------
         lot_number = delivery_df['lot_number'].iloc[0]
-approval_lot_numbers = ", ".join(sorted(delivery_df['lot_number'].astype(str).unique()))
+        approval_lot_numbers = ", ".join(sorted(delivery_df['lot_number'].astype(str).unique()))
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
