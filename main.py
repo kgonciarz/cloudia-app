@@ -125,16 +125,14 @@ if delivery_file and exporter_name:
             'lot': 'lot_number'
         })
 
-        # Remove any problematic characters by encoding and decoding to UTF-8
-        def safe_utf8_conversion(value):
+        # Clean all text fields and remove any non-UTF-8 characters
+        def clean_text(value):
             if isinstance(value, str):
-                try:
-                    return value.encode('utf-8').decode('utf-8')
-                except UnicodeDecodeError:
-                    return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+                return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
             return value
 
-        delivery_df = delivery_df.applymap(safe_utf8_conversion)
+        # Apply the cleaning function
+        delivery_df = delivery_df.applymap(clean_text)
 
         # Add exporter name and process the file
         delivery_df['exporter_name'] = exporter_name
