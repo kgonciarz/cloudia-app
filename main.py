@@ -123,6 +123,9 @@ if delivery_file and exporter_name:
             'lot': 'lot_number'
         })
 
+        # Remove invalid characters (non-UTF-8)
+        delivery_df = delivery_df.applymap(lambda x: str(x).encode('utf-8', 'ignore').decode('utf-8') if isinstance(x, str) else x)
+
         delivery_df['exporter_name'] = exporter_name
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
