@@ -149,11 +149,11 @@ if delivery_file and exporter_name:
         missing_values = delivery_df.isnull().any()
         if missing_values.any():
             missing_cols = list(missing_values[missing_values].index)
-            st.error(f"\u274c Error: Missing values found in fields: {missing_cols}")
+            st.error(f"❌ Error: Missing values found in fields: {missing_cols}")
             st.stop()
 
         if delivery_df['farmer_id'].isnull().any() or (delivery_df['farmer_id'].str.strip() == '').any():
-            st.error("\u274c Error: Some farmer_id fields are empty.")
+            st.error("❌ Error: Some farmer_id fields are empty.")
             st.stop()
 
         lot_number = delivery_df['lot_number'].iloc[0]
@@ -188,7 +188,7 @@ if delivery_file and exporter_name:
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
-            st.warning("\u26a0\ufe0f These farmers have exceeded their quota:")
+            st.warning("⚠️ These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
@@ -198,7 +198,7 @@ if delivery_file and exporter_name:
         any_quota_exceeded = not exceeded_df.empty
 
         if all_ids_valid and not any_quota_exceeded:
-            st.success("\u2705 File approved. All farmers valid and within quotas.")
+            st.success("✅ File approved. All farmers valid and within quotas.")
 
             if st.button("📄 Generate Approval PDF"):
                 lot_number = approval_lot_numbers
@@ -214,7 +214,7 @@ if delivery_file and exporter_name:
 
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="\u2b07\ufe0f Download Approval PDF",
+                        label="⬇️ Download Approval PDF",
                         data=f,
                         file_name=pdf_file,
                         mime="application/pdf"
