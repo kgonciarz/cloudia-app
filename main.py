@@ -10,8 +10,8 @@ import os
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"  # Logo file
-FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register
+LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
+FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -100,6 +100,7 @@ st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
+# Load farmer database
 farmers_df = pd.read_excel(FARMER_DB_PATH)
 farmers_df.columns = farmers_df.columns.str.lower()
 
@@ -111,11 +112,14 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
+    # Rename columns to match expected ones
     delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
+    # Check for required columns
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
     else:
+        # Map columns to match
         delivery_df = delivery_df.rename(columns={
             'coode producteur': 'farmer_id',
             'poids net': 'delivered_kg',
@@ -130,6 +134,7 @@ if delivery_file and exporter_name:
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
+        # Merge with farmers' data
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
         farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
@@ -137,14 +142,14 @@ if delivery_file and exporter_name:
         total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
         conn.close()
 
-        # Filter to only relevant farmers
+        # Filter and merge with quota information
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
-        # Check issues
+        # Check for unknown farmers and exceeded quotas
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
@@ -156,10 +161,12 @@ if delivery_file and exporter_name:
             st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
+        # Display quota overview
         st.write("### Quota Overview")
         merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
+        # Approve or reject the file based on the checks
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
 
@@ -167,7 +174,6 @@ if delivery_file and exporter_name:
             st.success("File approved. All farmers valid and within quotas.")
 
             if st.button("Generate Approval PDF"):
-                lot_number = delivery_df['lot_number'].iloc[0]
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
