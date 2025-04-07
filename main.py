@@ -125,8 +125,16 @@ if delivery_file and exporter_name:
             'lot': 'lot_number'
         })
 
-        # Apply UTF-8 encoding to all string columns (skip non-string columns)
-        delivery_df = delivery_df.applymap(lambda x: str(x).encode('utf-8', 'ignore').decode('utf-8') if isinstance(x, str) else x)
+        # Remove any problematic characters by encoding and decoding to UTF-8
+        def safe_utf8_conversion(value):
+            if isinstance(value, str):
+                try:
+                    return value.encode('utf-8').decode('utf-8')
+                except UnicodeDecodeError:
+                    return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+            return value
+
+        delivery_df = delivery_df.applymap(safe_utf8_conversion)
 
         # Add exporter name and process the file
         delivery_df['exporter_name'] = exporter_name
