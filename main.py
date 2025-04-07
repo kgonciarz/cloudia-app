@@ -103,6 +103,8 @@ def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg,
     save_approval_to_db(lot_number, exporter_name, file_name)
     return file_name
 
+# ... (wszystkie wcześniejsze definicje funkcji są bez zmian)
+
 # ---------------------- STREAMLIT UI ----------------------
 init_db()
 
@@ -165,7 +167,7 @@ if delivery_file and exporter_name:
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
+            lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED")
         )
 
         # Check issues
@@ -181,7 +183,9 @@ if delivery_file and exporter_name:
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
-        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
+        st.dataframe(
+            merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']]
+        )
 
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
@@ -211,36 +215,35 @@ if delivery_file and exporter_name:
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
 
-    # ---------------------- ADMIN PANEL ----------------------
-    with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
-        password = st.text_input("Enter admin password:", type="password")
-        if password == "123":
-            st.success("Access granted ✅")
+# ---------------------- ADMIN PANEL ----------------------
+with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
+    password = st.text_input("Enter admin password:", type="password")
+    if password == "123":
+        st.success("Access granted ✅")
 
-            wipe_password = st.text_input("Enter special password to clear all data:", type="password")
-            if wipe_password == "321":
-                if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
-                    conn = sqlite3.connect(DB_FILE)
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM deliveries")
-                    cursor.execute("DELETE FROM approvals")
-                    conn.commit()
-                    conn.close()
-                    st.success("✅ Database has been cleared!")
+        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+        if wipe_password == "321":
+            if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM deliveries")
+                cursor.execute("DELETE FROM approvals")
+                conn.commit()
+                conn.close()
+                st.success("✅ Database has been cleared!")
 
-            # Load deliveries
-            conn = sqlite3.connect(DB_FILE)
-            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-            conn.close()
+        conn = sqlite3.connect(DB_FILE)
+        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+        conn.close()
 
-            st.subheader("📦 Delivery History")
-            st.dataframe(deliveries_df)
+        st.subheader("📦 Delivery History")
+        st.dataframe(deliveries_df)
 
-            st.subheader("📋 Approval History")
-            st.dataframe(approvals_df)
+        st.subheader("📋 Approval History")
+        st.dataframe(approvals_df)
 
-        elif password:
-            st.error("Incorrect password 🚫")
+    elif password:
+        st.error("Incorrect password 🚫")
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
