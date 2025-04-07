@@ -10,8 +10,8 @@ import os
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"
-FARMER_DB_PATH = "farmer_database.xlsx"
+LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
+FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -61,7 +61,6 @@ def save_delivery_to_db(df):
     conn.commit()
     conn.close()
 
-# ---------------------- SAVE APPROVAL TO DB ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -107,11 +106,13 @@ def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg,
 # ---------------------- STREAMLIT UI ----------------------
 init_db()
 
+# Logo and Title
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
+# Load static farmer database
 farmers_df = pd.read_excel(FARMER_DB_PATH)
 farmers_df.columns = farmers_df.columns.str.lower()
 
@@ -177,7 +178,7 @@ if delivery_file and exporter_name:
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "✅ OK" if x <= 80 else ("🚠 Warning" if x <= 100 else "🔴 EXCEEDED")
+            lambda x: "✅ OK" if x <= 80 else ("⚠️ Warning" if x <= 100 else "🔴 EXCEEDED")
         )
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
@@ -221,6 +222,8 @@ if delivery_file and exporter_name:
                     )
         else:
             st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
+else:
+    st.info("Please upload the delivery file and enter exporter name to begin.")
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
@@ -249,6 +252,5 @@ with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
 
         st.subheader("📋 Approval History")
         st.dataframe(approvals_df)
-
     elif password:
         st.error("Incorrect password 🚫")
