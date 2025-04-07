@@ -6,46 +6,29 @@ from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
-import re
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
-FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
-
-# ---------------------- HELPER: REMOVE EMOJIS ----------------------
-def remove_emojis(text):
-    emoji_pattern = re.compile("["
-                           u"\U0001F600-\U0001F64F"  # emotikony
-                           u"\U0001F300-\U0001F5FF"  # symbole i piktogramy
-                           u"\U0001F680-\U0001F6FF"  # transport i symbole
-                           u"\U0001F1E0-\U0001F1FF"  # flagi
-                           "]+", flags=re.UNICODE)
-    return emoji_pattern.sub(r'', str(text))
+LOGO_PATH = "cloudia_logo.png"  # Logo file
+FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deliveries (
-            lot_number TEXT,
-            exporter_name TEXT,
-            farmer_id TEXT,
-            delivered_kg REAL,
-            PRIMARY KEY (lot_number, exporter_name, farmer_id)
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS approvals (
-            timestamp TEXT,
-            lot_number TEXT,
-            exporter_name TEXT,
-            approved_by TEXT,
-            file_name TEXT
-        )
-    ''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS deliveries (
+        lot_number TEXT,
+        exporter_name TEXT,
+        farmer_id TEXT,
+        delivered_kg REAL,
+        PRIMARY KEY (lot_number, exporter_name, farmer_id))''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS approvals (
+        timestamp TEXT,
+        lot_number TEXT,
+        exporter_name TEXT,
+        approved_by TEXT,
+        file_name TEXT)''')
     conn.commit()
     conn.close()
 
@@ -53,10 +36,7 @@ def init_db():
 def delete_existing_delivery(lot_number, exporter_name):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM deliveries
-        WHERE lot_number = ? AND exporter_name = ?
-    """, (lot_number, exporter_name))
+    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
     conn.commit()
     conn.close()
 
@@ -65,22 +45,18 @@ def save_delivery_to_db(df):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     for _, row in df.iterrows():
-        cursor.execute('''
-            REPLACE INTO deliveries (lot_number, exporter_name, farmer_id, delivered_kg)
-            VALUES (?, ?, ?, ?)
-        ''', (row['lot_number'], row['exporter_name'], row['farmer_id'], row['delivered_kg']))
+        cursor.execute('''REPLACE INTO deliveries (lot_number, exporter_name, farmer_id, delivered_kg)
+                        VALUES (?, ?, ?, ?)''', (row['lot_number'], row['exporter_name'], row['farmer_id'], row['delivered_kg']))
     conn.commit()
     conn.close()
 
-# ---------------------- SAVE APPROVAL TO DB ----------------------
+# ---------------------- SAVE APPROVAL ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute(
-        "INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name) VALUES (?, ?, ?, ?, ?)",
-        (timestamp, lot_number, exporter_name, approved_by, file_name)
-    )
+    cursor.execute('''INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name)
+                    VALUES (?, ?, ?, ?, ?)''', (timestamp, lot_number, exporter_name, approved_by, file_name))
     conn.commit()
     conn.close()
 
@@ -124,7 +100,6 @@ st.image(logo, width=150)
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
-# Load static farmer database
 farmers_df = pd.read_excel(FARMER_DB_PATH)
 farmers_df.columns = farmers_df.columns.str.lower()
 
@@ -136,11 +111,7 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    delivery_df.rename(columns={
-        'farmer_id': 'coode producteur',
-        'poids net': 'poids net',
-        'n° du lot': 'lot'
-    }, inplace=True)
+    delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
@@ -163,22 +134,14 @@ if delivery_file and exporter_name:
         farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
         conn = sqlite3.connect(DB_FILE)
-        total_df = pd.read_sql_query('''
-            SELECT farmer_id, SUM(delivered_kg) as delivered_kg
-            FROM deliveries
-            GROUP BY farmer_id
-        ''', conn)
+        total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
         conn.close()
 
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
-        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED")
-        )
-
-        merged_df = merged_df.applymap(remove_emojis)
+        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
@@ -211,7 +174,6 @@ if delivery_file and exporter_name:
                     total_kg=total_kg,
                     logo_path=LOGO_PATH
                 )
-
                 with open(pdf_file, "rb") as f:
                     st.download_button(
                         label="Download Approval PDF",
@@ -222,35 +184,32 @@ if delivery_file and exporter_name:
         else:
             st.warning("File not approved – check for unknown farmers or quota violations.")
 
-    with st.expander("Admin Panel – View Delivery & Approval History"):
-        password = st.text_input("Enter admin password:", type="password")
-        if password == "123":
-            st.success("Access granted")
+# ---------------------- ADMIN PANEL ----------------------
+with st.expander("Admin Panel – View Delivery & Approval History"):
+    password = st.text_input("Enter admin password:", type="password")
+    if password == "123":
+        st.success("Access granted!")
 
-            wipe_password = st.text_input("Enter special password to clear all data:", type="password")
-            if wipe_password == "321":
-                if st.button("Clear All Data (Deliveries + Approvals)"):
-                    conn = sqlite3.connect(DB_FILE)
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM deliveries")
-                    cursor.execute("DELETE FROM approvals")
-                    conn.commit()
-                    conn.close()
-                    st.success("Database has been cleared!")
+        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+        if wipe_password == "321":
+            if st.button("Clear All Data"):
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM deliveries")
+                cursor.execute("DELETE FROM approvals")
+                conn.commit()
+                conn.close()
+                st.success("Database has been cleared!")
 
-            conn = sqlite3.connect(DB_FILE)
-            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-            conn.close()
+        conn = sqlite3.connect(DB_FILE)
+        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+        conn.close()
 
-            st.subheader("Delivery History")
-            st.dataframe(deliveries_df)
+        st.subheader("Delivery History")
+        st.dataframe(deliveries_df)
 
-            st.subheader("Approval History")
-            st.dataframe(approvals_df)
-
-        elif password:
-            st.error("Incorrect password")
-
-else:
-    st.info("Please upload the delivery file and enter exporter name to begin.")
+        st.subheader("Approval History")
+        st.dataframe(approvals_df)
+    elif password:
+        st.error("Incorrect password")
