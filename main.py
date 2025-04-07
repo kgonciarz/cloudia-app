@@ -186,69 +186,73 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        # Insert into DB and process further
+        # Ensure lot_number and exporter_name are valid
         lot_number = delivery_df['lot_number'].iloc[0]
-        delete_existing_delivery(lot_number, exporter_name)
-        save_delivery_to_db(delivery_df)
+        if lot_number and exporter_name:
+            delete_existing_delivery(lot_number, exporter_name)
+            save_delivery_to_db(delivery_df)
 
-        # Calculate max quota for farmers
-        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-        farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
+            # Calculate max quota for farmers
+            farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
+            farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
-        conn = sqlite3.connect(DB_FILE)
-        total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
-        conn.close()
+            conn = sqlite3.connect(DB_FILE)
+            total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
+            conn.close()
 
-        # Merge farmers with deliveries
-        filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
-        merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
+            # Merge farmers with deliveries
+            filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
+            merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
-        # Calculate quota used percentage and status
-        merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
-        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
+            # Calculate quota used percentage and status
+            merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
+            merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
-        # Check for issues
-        unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-        exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
+            # Check for issues
+            unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+            exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
-        if len(unknown_farmers) > 0:
-            st.error("The following farmers are NOT in the database:")
-            st.write(list(unknown_farmers))
+            if len(unknown_farmers) > 0:
+                st.error("The following farmers are NOT in the database:")
+                st.write(list(unknown_farmers))
 
-        if not exceeded_df.empty:
-            st.warning("These farmers have exceeded their quota:")
-            st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
+            if not exceeded_df.empty:
+                st.warning("These farmers have exceeded their quota:")
+                st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
-        st.write("### Quota Overview")
-        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
-        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
+            st.write("### Quota Overview")
+            merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+            st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-        all_ids_valid = len(unknown_farmers) == 0
-        any_quota_exceeded = not exceeded_df.empty
+            all_ids_valid = len(unknown_farmers) == 0
+            any_quota_exceeded = not exceeded_df.empty
 
-        if all_ids_valid and not any_quota_exceeded:
-            st.success(translations[st.session_state.language]["success_file_approved"])
+            if all_ids_valid and not any_quota_exceeded:
+                st.success(translations[st.session_state.language]["success_file_approved"])
 
-            if st.button(translations[st.session_state.language]["button_generate_pdf"]):
-                total_kg = delivery_df['delivered_kg'].sum()
-                farmer_count = delivery_df['farmer_id'].nunique()
-                pdf_file = generate_pdf_confirmation(
-                    lot_numbers=delivery_df['lot_number'].unique(),  # Pass all lot numbers
-                    exporter_name=exporter_name,
-                    farmer_count=farmer_count,
-                    total_kg=total_kg,
-                    logo_path=LOGO_PATH
-                )
-
-                with open(pdf_file, "rb") as f:
-                    st.download_button(
-                        label=translations[st.session_state.language]["button_download_pdf"],
-                        data=f,
-                        file_name=pdf_file,
-                        mime="application/pdf"
+                if st.button(translations[st.session_state.language]["button_generate_pdf"]):
+                    total_kg = delivery_df['delivered_kg'].sum()
+                    farmer_count = delivery_df['farmer_id'].nunique()
+                    pdf_file = generate_pdf_confirmation(
+                        lot_numbers=delivery_df['lot_number'].unique(),  # Pass all lot numbers
+                        exporter_name=exporter_name,
+                        farmer_count=farmer_count,
+                        total_kg=total_kg,
+                        logo_path=LOGO_PATH
                     )
+
+                    with open(pdf_file, "rb") as f:
+                        st.download_button(
+                            label=translations[st.session_state.language]["button_download_pdf"],
+                            data=f,
+                            file_name=pdf_file,
+                            mime="application/pdf"
+                        )
+            else:
+                st.warning(translations[st.session_state.language]["warning_file_not_approved"])
+
         else:
-            st.warning(translations[st.session_state.language]["warning_file_not_approved"])
+            st.error("❌ Missing lot number or exporter name.")
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander(translations[st.session_state.language]["admin_panel"]):
