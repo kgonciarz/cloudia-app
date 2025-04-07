@@ -143,22 +143,7 @@ if delivery_file and exporter_name:
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
-        today = datetime.now().strftime('%Y-%m-%d')
-        if 'date' in delivery_df.columns:
-            delivery_df['date'] = delivery_df['date'].fillna(today)
-
-        missing_values = delivery_df.isnull().any()
-        if missing_values.any():
-            missing_cols = list(missing_values[missing_values].index)
-            st.error(f"Error: Missing values found in fields: {missing_cols}")
-            st.stop()
-
-        if delivery_df['farmer_id'].isnull().any() or (delivery_df['farmer_id'].str.strip() == '').any():
-            st.error("Error: Some farmer_id fields are empty.")
-            st.stop()
-
-        lot_number = delivery_df['lot_number'].iloc[0]
-        approval_lot_numbers = ", ".join(sorted(delivery_df['lot_number'].astype(str).unique()))
+        lot_number = str(delivery_df['lot_number'].iloc[0])
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
@@ -201,8 +186,8 @@ if delivery_file and exporter_name:
         if all_ids_valid and not any_quota_exceeded:
             st.success("File approved. All farmers valid and within quotas.")
 
-            if st.button("Generate Approval PDF"):
-                lot_number = approval_lot_numbers
+            if st.button("📄 Generate Approval PDF"):
+                lot_number = delivery_df['lot_number'].iloc[0]
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
