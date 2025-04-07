@@ -112,28 +112,32 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
+    # Ensure columns are renamed correctly
     delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
     else:
+        # Rename columns to standardize
         delivery_df = delivery_df.rename(columns={
             'coode producteur': 'farmer_id',
             'poids net': 'delivered_kg',
             'lot': 'lot_number'
         })
 
-        # Remove invalid characters (non-UTF-8)
+        # Apply UTF-8 encoding
         delivery_df = delivery_df.applymap(lambda x: str(x).encode('utf-8', 'ignore').decode('utf-8') if isinstance(x, str) else x)
 
         delivery_df['exporter_name'] = exporter_name
         delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
+        # Insert into DB and process further
         lot_number = delivery_df['lot_number'].iloc[0]
         delete_existing_delivery(lot_number, exporter_name)
         save_delivery_to_db(delivery_df)
 
+        # Calculate max quota for farmers
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
         farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
 
@@ -141,12 +145,15 @@ if delivery_file and exporter_name:
         total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
         conn.close()
 
+        # Merge farmers with deliveries
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
+        # Calculate quota used percentage and status
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
+        # Check for issues
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
