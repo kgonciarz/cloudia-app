@@ -10,8 +10,8 @@ import os
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
-FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
+LOGO_PATH = "cloudia_logo.png"
+FARMER_DB_PATH = "farmer_database.xlsx"
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -109,7 +109,7 @@ init_db()
 # Logo and Title
 logo = Image.open(LOGO_PATH)
 st.image(logo, width=150)
-st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
+st.markdown("### Approved by CloudIA", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
 # Load static farmer database
@@ -150,11 +150,11 @@ if delivery_file and exporter_name:
         missing_values = delivery_df.isnull().any()
         if missing_values.any():
             missing_cols = list(missing_values[missing_values].index)
-            st.error(f"❌ Error: Missing values found in fields: {missing_cols}")
+            st.error(f"Error: Missing values found in fields: {missing_cols}")
             st.stop()
 
         if delivery_df['farmer_id'].isnull().any() or (delivery_df['farmer_id'].str.strip() == '').any():
-            st.error("❌ Error: Some farmer_id fields are empty.")
+            st.error("Error: Some farmer_id fields are empty.")
             st.stop()
 
         lot_number = delivery_df['lot_number'].iloc[0]
@@ -178,18 +178,18 @@ if delivery_file and exporter_name:
 
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "✅ OK" if x <= 80 else ("⚠️ Warning" if x <= 100 else "🔴 EXCEEDED")
+            lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED")
         )
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
         if len(unknown_farmers) > 0:
-            st.error("🚫 The following farmers are NOT in the database:")
+            st.error("The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
-            st.warning("⚠️ These farmers have exceeded their quota:")
+            st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
@@ -202,11 +202,10 @@ if delivery_file and exporter_name:
             st.success("✅ File approved. All farmers valid and within quotas.")
 
             if st.button("Generate Approval PDF"):
-                lot_number = approval_lot_numbers
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
-                    lot_number=lot_number,
+                    lot_number=approval_lot_numbers,
                     exporter_name=exporter_name,
                     farmer_count=farmer_count,
                     total_kg=total_kg,
@@ -221,19 +220,19 @@ if delivery_file and exporter_name:
                         mime="application/pdf"
                     )
         else:
-            st.warning("🚫 File not approved - check for unknown farmers or quota violations.")
+            st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
 
 # ---------------------- ADMIN PANEL ----------------------
-with st.expander("🔐 Admin Panel - View Delivery & Approval History"):
+with st.expander("Admin Panel - View Delivery & Approval History"):
     password = st.text_input("Enter admin password:", type="password")
     if password == "123":
-        st.success("Access granted ✅")
+        st.success("✅ Access granted")
 
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
-            if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
+            if st.button("Clear All Data (Deliveries + Approvals)"):
                 conn = sqlite3.connect(DB_FILE)
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM deliveries")
@@ -252,6 +251,5 @@ with st.expander("🔐 Admin Panel - View Delivery & Approval History"):
 
         st.subheader("Approval History")
         st.dataframe(approvals_df)
-
     elif password:
         st.error("Incorrect password 🚫")
