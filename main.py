@@ -155,6 +155,7 @@ farmers_df.columns = farmers_df.columns.str.lower()
 delivery_file = st.sidebar.file_uploader(translations[st.session_state.language]["upload_delivery_file"], type=["xlsx"])
 exporter_name = st.sidebar.text_input(translations[st.session_state.language]["exporter_name"])
 
+# Only run the following logic if both file and exporter name are provided
 if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
@@ -187,6 +188,11 @@ if delivery_file and exporter_name:
         delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
         # Ensure lot_number and exporter_name are valid
+        lot_number = delivery_df['lot_number'].iloc[0]
+        if lot_number and exporter_name:  # Only proceed if both are valid
+            delete_existing_delivery(lot_number, exporter_name)
+            save_delivery_to_db(delivery_df)
+            
         # ---------------------- DELETE EXISTING DELIVERY ----------------------
         def delete_existing_delivery(lot_number, exporter_name):
             conn = sqlite3.connect(DB_FILE)
