@@ -201,7 +201,7 @@ if delivery_file and exporter_name:
         if all_ids_valid and not any_quota_exceeded:
             st.success("✅ File approved. All farmers valid and within quotas.")
 
-            if st.button("📄 Generate Approval PDF"):
+            if st.button("Generate Approval PDF"):
                 lot_number = approval_lot_numbers
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
