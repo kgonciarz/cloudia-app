@@ -9,8 +9,8 @@ import os
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
-LOGO_PATH = "cloudia_logo.png"  # Logo file
-FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register
+LOGO_PATH = "cloudia_logo.png"
+FARMER_DB_PATH = "farmer_database.xlsx"
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -110,7 +110,7 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n\u00b0 du lot': 'lot'}, inplace=True)
+    delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
 
     if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
         st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
@@ -154,7 +154,14 @@ if delivery_file and exporter_name:
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("Quota Overview")
-        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+
+        # FIX UnicodeError: ensure all data are clean
+        for col in ['area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct']:
+            merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce').fillna(0)
+
+        merged_df['quota_status'] = merged_df['quota_status'].fillna('')
+        merged_df['farmer_id'] = merged_df['farmer_id'].fillna('')
+
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
@@ -182,13 +189,13 @@ if delivery_file and exporter_name:
                         mime="application/pdf"
                     )
         else:
-            st.warning("File not approved. Check for unknown farmers or quota violations.")
+            st.warning("File not approved – check for unknown farmers or quota violations.")
 
 # ---------------------- ADMIN PANEL ----------------------
-with st.expander("Admin Panel - View Delivery & Approval History"):
+with st.expander("Admin Panel – View Delivery & Approval History"):
     password = st.text_input("Enter admin password:", type="password")
     if password == "123":
-        st.success("Access granted.")
+        st.success("Access granted!")
 
         wipe_password = st.text_input("Enter special password to clear all data:", type="password")
         if wipe_password == "321":
@@ -199,7 +206,7 @@ with st.expander("Admin Panel - View Delivery & Approval History"):
                 cursor.execute("DELETE FROM approvals")
                 conn.commit()
                 conn.close()
-                st.success("Database has been cleared.")
+                st.success("Database has been cleared!")
 
         conn = sqlite3.connect(DB_FILE)
         deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
