@@ -203,7 +203,7 @@ if delivery_file and exporter_name:
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
                 pdf_file = generate_pdf_confirmation(
-                    lot_number=lot_number,
+                    lot_numbers=delivery_df['lot_number'].unique(),  # Pass all lot numbers
                     exporter_name=exporter_name,
                     farmer_count=farmer_count,
                     total_kg=total_kg,
