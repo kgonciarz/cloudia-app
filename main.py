@@ -192,7 +192,7 @@ if delivery_file and exporter_name:
         if lot_number and exporter_name:  # Only proceed if both are valid
             delete_existing_delivery(lot_number, exporter_name)
             save_delivery_to_db(delivery_df)
-            
+
         # ---------------------- DELETE EXISTING DELIVERY ----------------------
         def delete_existing_delivery(lot_number, exporter_name):
             conn = sqlite3.connect(DB_FILE)
@@ -269,7 +269,7 @@ if delivery_file and exporter_name:
         else:
             st.warning(translations[st.session_state.language]["warning_file_not_approved"])
 
-else:
+elif delivery_file or exporter_name:
     st.error("❌ Missing lot number or exporter name.")
 
 
