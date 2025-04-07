@@ -247,10 +247,11 @@ with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
         approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
         conn.close()
 
-        st.subheader("📦 Delivery History")
+        st.subheader("Delivery History")
         st.dataframe(deliveries_df)
 
-        st.subheader("📋 Approval History")
+        st.subheader("Approval History")
         st.dataframe(approvals_df)
+
     elif password:
         st.error("Incorrect password 🚫")
