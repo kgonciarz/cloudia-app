@@ -223,7 +223,7 @@ if delivery_file and exporter_name:
             st.warning("\ud83d\udeab File not approved – check for unknown farmers or quota violations.")
 
 # ---------------------- ADMIN PANEL ----------------------
-with st.expander("\ud83d\udd10 Admin Panel – View Delivery & Approval History"):
+with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
     password = st.text_input("Enter admin password:", type="password")
     if password == "123":
         st.success("Access granted ✅")
