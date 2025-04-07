@@ -6,12 +6,23 @@ from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
+import re
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
 LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
 FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
+
+# ---------------------- HELPER: REMOVE EMOJIS ----------------------
+def remove_emojis(text):
+    emoji_pattern = re.compile("["
+                           u"\U0001F600-\U0001F64F"  # emotikony
+                           u"\U0001F300-\U0001F5FF"  # symbole i piktogramy
+                           u"\U0001F680-\U0001F6FF"  # transport i symbole
+                           u"\U0001F1E0-\U0001F1FF"  # flagi
+                           "]+", flags=re.UNICODE)
+    return emoji_pattern.sub(r'', str(text))
 
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
@@ -61,6 +72,7 @@ def save_delivery_to_db(df):
     conn.commit()
     conn.close()
 
+# ---------------------- SAVE APPROVAL TO DB ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -103,8 +115,6 @@ def generate_pdf_confirmation(lot_number, exporter_name, farmer_count, total_kg,
     save_approval_to_db(lot_number, exporter_name, file_name)
     return file_name
 
-# ... (wszystkie wcześniejsze definicje funkcji są bez zmian)
-
 # ---------------------- STREAMLIT UI ----------------------
 init_db()
 
@@ -126,7 +136,6 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    # Rename common French column names to expected ones
     delivery_df.rename(columns={
         'farmer_id': 'coode producteur',
         'poids net': 'poids net',
@@ -161,7 +170,6 @@ if delivery_file and exporter_name:
         ''', conn)
         conn.close()
 
-        # Filter to only relevant farmers
         filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
         merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
 
@@ -170,30 +178,29 @@ if delivery_file and exporter_name:
             lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED")
         )
 
-        # Check issues
+        merged_df = merged_df.applymap(remove_emojis)
+
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
         if len(unknown_farmers) > 0:
-            st.error("🚫 The following farmers are NOT in the database:")
+            st.error("The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
 
         if not exceeded_df.empty:
-            st.warning("⚠️ These farmers have exceeded their quota:")
+            st.warning("These farmers have exceeded their quota:")
             st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
 
         st.write("### Quota Overview")
-        st.dataframe(
-            merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']]
-        )
+        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         all_ids_valid = len(unknown_farmers) == 0
         any_quota_exceeded = not exceeded_df.empty
 
         if all_ids_valid and not any_quota_exceeded:
-            st.success("✅ File approved. All farmers valid and within quotas.")
+            st.success("File approved. All farmers valid and within quotas.")
 
-            if st.button("📄 Generate Approval PDF"):
+            if st.button("Generate Approval PDF"):
                 lot_number = delivery_df['lot_number'].iloc[0]
                 total_kg = delivery_df['delivered_kg'].sum()
                 farmer_count = delivery_df['farmer_id'].nunique()
@@ -207,43 +214,43 @@ if delivery_file and exporter_name:
 
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="⬇️ Download Approval PDF",
+                        label="Download Approval PDF",
                         data=f,
                         file_name=pdf_file,
                         mime="application/pdf"
                     )
         else:
-            st.warning("🚫 File not approved – check for unknown farmers or quota violations.")
+            st.warning("File not approved – check for unknown farmers or quota violations.")
 
-# ---------------------- ADMIN PANEL ----------------------
-with st.expander("🔐 Admin Panel – View Delivery & Approval History"):
-    password = st.text_input("Enter admin password:", type="password")
-    if password == "123":
-        st.success("Access granted ✅")
+    with st.expander("Admin Panel – View Delivery & Approval History"):
+        password = st.text_input("Enter admin password:", type="password")
+        if password == "123":
+            st.success("Access granted")
 
-        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
-        if wipe_password == "321":
-            if st.button("🧹 Clear All Data (Deliveries + Approvals)"):
-                conn = sqlite3.connect(DB_FILE)
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM deliveries")
-                cursor.execute("DELETE FROM approvals")
-                conn.commit()
-                conn.close()
-                st.success("✅ Database has been cleared!")
+            wipe_password = st.text_input("Enter special password to clear all data:", type="password")
+            if wipe_password == "321":
+                if st.button("Clear All Data (Deliveries + Approvals)"):
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM deliveries")
+                    cursor.execute("DELETE FROM approvals")
+                    conn.commit()
+                    conn.close()
+                    st.success("Database has been cleared!")
 
-        conn = sqlite3.connect(DB_FILE)
-        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-        conn.close()
+            conn = sqlite3.connect(DB_FILE)
+            deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
+            approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
+            conn.close()
 
-        st.subheader("📦 Delivery History")
-        st.dataframe(deliveries_df)
+            st.subheader("Delivery History")
+            st.dataframe(deliveries_df)
 
-        st.subheader("📋 Approval History")
-        st.dataframe(approvals_df)
+            st.subheader("Approval History")
+            st.dataframe(approvals_df)
 
-    elif password:
-        st.error("Incorrect password 🚫")
+        elif password:
+            st.error("Incorrect password")
+
 else:
     st.info("Please upload the delivery file and enter exporter name to begin.")
