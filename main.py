@@ -215,7 +215,7 @@ if delivery_file and exporter_name:
 
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="⬇️ Download Approval PDF",
+                        label="Download Approval PDF",
                         data=f,
                         file_name=pdf_file,
                         mime="application/pdf"
