@@ -14,6 +14,60 @@ LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
 LOGO_COCOA = "cocoasourcelogo.jpg"
 FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
+# ---------------------- TEMPLATE HANDLING ----------------------
+# Define the correct column names (both uppercase and lowercase variants will be handled)
+expected_columns = {
+    'cooperative_name': 'Cooperative Name',
+    'export_lot': 'Export lot N°/Connaissement',
+    'date_of_purchase': 'Date of purchase from cooperative',
+    'certification': 'Certification',
+    'farmer_id': 'Farmer_ID',
+    'farm_id': 'Farm_ID',
+    'net_weight': 'Net Weight (KG)',
+    'exporter': 'Exporter'
+}
+
+# Load the template provided by the user
+template_path = '/mnt/data/EXPORT_Template_tracability_CCS-EN - version 25-26.xlsx'
+template_df = pd.read_excel(template_path)
+
+# Function to replace missing date with today's date and standardize column names
+def fill_missing_data_and_standardize(df):
+    # Standardize column names to lowercase for comparison
+    df.columns = df.columns.str.strip().str.lower()
+
+    # Map the columns to the expected names
+    df.rename(columns={col: expected_columns.get(col, col) for col in df.columns}, inplace=True)
+
+    # Fill missing 'date_of_purchase' with today's date
+    if 'Date of purchase from cooperative' in df.columns:
+        df['Date of purchase from cooperative'] = df['Date of purchase from cooperative'].fillna(datetime.now().strftime('%Y-%m-%d'))
+
+    # Replace other missing values with 'N/A' or appropriate default
+    df = df.fillna('N/A')
+
+    return df
+
+# Apply the function to fill missing data and standardize column names
+filled_template_df = fill_missing_data_and_standardize(template_df)
+
+# Show the updated DataFrame in Streamlit
+st.write("Updated Template with Default Values and Standardized Columns:")
+st.dataframe(filled_template_df)
+
+# Assuming you're going to do something further with this filled dataframe, such as saving it or processing it
+# Save the updated dataframe to a new Excel file
+output_path = '/mnt/data/Updated_Export_Template.xlsx'
+filled_template_df.to_excel(output_path, index=False)
+
+# Provide a download link for the updated file
+st.download_button(
+    label="Download Updated Template",
+    data=open(output_path, 'rb'),
+    file_name="Updated_Export_Template.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -249,9 +303,6 @@ if delivery_file and exporter_name:
         else:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
-
-
-
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
