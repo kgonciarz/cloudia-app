@@ -69,7 +69,7 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     conn.close()
 
 # ---------------------- PDF GENERATOR ----------------------
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None, logo_cocoa=None):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -96,12 +96,24 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.cell(200, 10, txt=f"Total Delivered (kg): {total_kg}", ln=True)
     pdf.cell(200, 10, txt="Approved by CloudIA", ln=True)
     pdf.ln(10)
+
+    # NEW: List delivered MT per lot
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="Delivered Weight per Lot:", ln=True)
+    pdf.set_font("Arial", size=12)
+    for lot, kg in lot_kg_summary.items():
+        mt = round(kg / 1000, 2)  # Convert kg -> MT
+        pdf.cell(200, 10, txt=f"Lot {lot}: {mt} MT", ln=True)
+
+    pdf.ln(10)
     pdf.cell(200, 10, txt="All farmer IDs are valid and within quota limits.", ln=True)
 
     file_name = f"approval_{'_'.join(map(str, lot_numbers))}_{exporter_name}.pdf"
     pdf.output(file_name)
 
     save_approval_to_db(lot_numbers_str, exporter_name, file_name)
+    return file_name
+
     return file_name
 
 # ---------------------- STREAMLIT UI ----------------------
