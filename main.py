@@ -97,12 +97,12 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.cell(200, 10, txt="Approved by CloudIA", ln=True)
     pdf.ln(10)
 
-    # NEW: List delivered MT per lot
+    # NOWE: wyswietl MT per Lot
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(200, 10, txt="Delivered Weight per Lot:", ln=True)
     pdf.set_font("Arial", size=12)
     for lot, kg in lot_kg_summary.items():
-        mt = round(kg / 1000, 2)  # Convert kg -> MT
+        mt = round(kg / 1000, 2)  # Convert kg to MT
         pdf.cell(200, 10, txt=f"Lot {lot}: {mt} MT", ln=True)
 
     pdf.ln(10)
@@ -112,8 +112,6 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.output(file_name)
 
     save_approval_to_db(lot_numbers_str, exporter_name, file_name)
-    return file_name
-
     return file_name
 
 # ---------------------- STREAMLIT UI ----------------------
@@ -221,6 +219,7 @@ if delivery_file and exporter_name:
                         exporter_name=exporter_name,
                         farmer_count=farmer_count,
                         total_kg=total_kg,
+                        lot_kg_summary=lot_totals.to_dict(),  # <<< DODAJ TO!
                         logo_path=LOGO_PATH,
                         logo_cocoa=LOGO_COCOA
                     )
@@ -239,6 +238,7 @@ if delivery_file and exporter_name:
 
         else:
             st.warning("File not approved – check for unknown farmers or quota violations.")
+
 
 
 # ---------------------- ADMIN PANEL ----------------------
