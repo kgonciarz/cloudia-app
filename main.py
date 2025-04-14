@@ -266,20 +266,6 @@ if delivery_file and exporter_name:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
 
-def display_colored_status(status):
-    if status == 'OK':
-        return f'<p style="color:green">{status}</p>'
-    elif status == 'Warning':
-        return f'<p style="color:orange">{status}</p>'
-    elif status == 'EXCEEDED':
-        return f'<p style="color:red">{status}</p>'
-    return status
-
-# Apply this function on your quota_status column when displaying it
-for status in merged_df['quota_status']:
-    st.markdown(display_colored_status(status), unsafe_allow_html=True)
-
-
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
