@@ -14,6 +14,22 @@ LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
 LOGO_COCOA = "cocoasourcelogo.jpg"
 FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
+# Apply color based on quota status
+def color_quota_status(val):
+    if val == 'OK':
+        return 'color: green'
+    elif val == 'Warning':
+        return 'color: orange'
+    elif val == 'EXCEEDED':
+        return 'color: red'
+    return ''
+
+# Apply styles to the DataFrame
+styled_df = merged_df.style.applymap(color_quota_status, subset=['quota_status'])
+
+# Display the styled DataFrame
+st.dataframe(styled_df)
+
 # ---------------------- DATABASE INIT ----------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -250,6 +266,18 @@ if delivery_file and exporter_name:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
 
+def display_colored_status(status):
+    if status == 'OK':
+        return f'<p style="color:green">{status}</p>'
+    elif status == 'Warning':
+        return f'<p style="color:orange">{status}</p>'
+    elif status == 'EXCEEDED':
+        return f'<p style="color:red">{status}</p>'
+    return status
+
+# Apply this function on your quota_status column when displaying it
+for status in merged_df['quota_status']:
+    st.markdown(display_colored_status(status), unsafe_allow_html=True)
 
 
 
