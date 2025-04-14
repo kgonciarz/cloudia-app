@@ -193,7 +193,6 @@ if delivery_file and exporter_name:
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
-        # Check for issues
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
@@ -209,6 +208,7 @@ if delivery_file and exporter_name:
         merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
+# Now checking for file approval based on conditions
         if all_ids_valid and not any_quota_exceeded:
             st.success("File approved. All farmers valid and within quotas.")
 
@@ -238,6 +238,7 @@ if delivery_file and exporter_name:
         else:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
+
 
 
 # ---------------------- ADMIN PANEL ----------------------
