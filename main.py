@@ -88,7 +88,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 
     # If CocoaSource logo is provided, add it to the center of the page with a larger size
     if logo_cocoa and os.path.exists(logo_cocoa):
-        pdf.image(logo_cocoa, x=(pdf.w - 140) / 2, y=30, w=140)  # Adjust w for larger size
+        pdf.image(logo_cocoa, x=(pdf.w - 140) / 2, y=10, w=140)  # Adjust w for larger size
 
     pdf.ln(30)  # Add some space after the CocoaSource logo
 
