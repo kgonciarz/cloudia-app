@@ -259,36 +259,3 @@ if delivery_file and exporter_name:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
         st.warning("File not approved – check for unknown farmers or quota violations.")
 
-# ---------------------- ADMIN PANEL ----------------------
-with st.expander("Admin Panel – View Delivery & Approval History"):
-    # Use the previously defined LOGO_COCOA path
-    logo_cocoa = Image.open(LOGO_COCOA)  # Use the CocoaSource logo
-    st.image(logo_cocoa, width=250)  # Display the logo with the specified width
-
-    password = st.text_input("Enter admin password:", type="password")
-    if password == "123":
-        st.success("Access granted!")
-
-        wipe_password = st.text_input("Enter special password to clear all data:", type="password")
-        if wipe_password == "321":
-            if st.button("Clear All Data"):
-                conn = sqlite3.connect(DB_FILE)
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM deliveries")
-                cursor.execute("DELETE FROM approvals")
-                conn.commit()
-                conn.close()
-                st.success("Database has been cleared!")
-
-        conn = sqlite3.connect(DB_FILE)
-        deliveries_df = pd.read_sql_query("SELECT * FROM deliveries", conn)
-        approvals_df = pd.read_sql_query("SELECT * FROM approvals", conn)
-        conn.close()
-
-        st.subheader("Delivery History")
-        st.dataframe(deliveries_df)
-
-        st.subheader("Approval History")
-        st.dataframe(approvals_df)
-    elif password:
-        st.error("Incorrect password")
