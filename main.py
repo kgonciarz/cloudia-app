@@ -159,7 +159,7 @@ if delivery_file and exporter_name:
         uploaded_df = uploaded_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
 
         for lot in uploaded_df['lot_number'].unique():
-        delete_existing_delivery(lot, exporter_name)
+            delete_existing_delivery(lot, exporter_name)
         save_delivery_to_db(uploaded_df)
 
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
