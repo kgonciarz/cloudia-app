@@ -185,7 +185,7 @@ if delivery_file and exporter_name:
 
         # Calculate max quota for farmers
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-        farmers_df['max_quota_kg'] = farmers_df['area_ha'] * QUOTA_PER_HA
+        farmers_df['max_quota_kg'] = (farmers_df['area_ha'] * QUOTA_PER_HA).round(2)
 
         conn = sqlite3.connect(DB_FILE)
         total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
@@ -197,6 +197,7 @@ if delivery_file and exporter_name:
 
         # Calculate quota used percentage and status
         merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
+        merged_df['quota_used_pct'] = merged_df['quota_used_pct'].round(2)
         merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
