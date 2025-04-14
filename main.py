@@ -238,11 +238,9 @@ if delivery_file and exporter_name:
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
-
-        # Display your company logo in the admin panel
-    logo_path = "cocoasourcelogo.jpg"  # Path to the logo you uploaded
-    logo = Image.open(logo_path)
-    st.image(logo, width=150)  # Adjust width as necessary
+    # Use the previously defined LOGO_COCOA path
+    logo_cocoa = Image.open(LOGO_COCOA)  # Use the CocoaSource logo
+    st.image(logo_cocoa, width=250)  # Display the logo with the specified width
 
     password = st.text_input("Enter admin password:", type="password")
     if password == "123":
