@@ -75,18 +75,23 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     conn.close()
 
 # ---------------------- PDF GENERATOR ----------------------
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None, logo_cocoa = None):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None, logo_cocoa=None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
+    # If CloudIA logo is provided, add it to the top left
     if logo_path and os.path.exists(logo_path):
-        pdf.image(logo_path, x=10, y=8, w=33)
+        pdf.image(logo_path, x=10, y=8, w=33)  # Adjust w as needed to control the size
 
+    pdf.ln(20)  # Add some space between logos and text
+
+    # If CocoaSource logo is provided, add it to the center of the page with a larger size
     if logo_cocoa and os.path.exists(logo_cocoa):
-        pdf.image(logo_cocoa, x=150, y=8, w=33)
+        pdf.image(logo_cocoa, x=(pdf.w - 100) / 2, y=pdf.get_y(), w=100)  # Adjust w for larger size
 
-    pdf.ln(20)
+    pdf.ln(30)  # Add some space after the CocoaSource logo
+
     pdf.set_font("Arial", 'B', 14)
     pdf.cell(200, 10, txt="Delivery Approval Confirmation", ln=True, align='C')
 
@@ -111,6 +116,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 
     save_approval_to_db(lot_numbers_str, exporter_name, file_name)  # Store multiple lot numbers in the DB
     return file_name
+
 
 # ---------------------- STREAMLIT UI ----------------------
 init_db()
