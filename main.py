@@ -224,6 +224,7 @@ if delivery_file and exporter_name:
                     farmer_count=farmer_count,
                     total_kg=total_kg,
                     logo_path=LOGO_PATH
+                    logo_cocoa=LOGO_COCOA
                 )
 
                 with open(pdf_file, "rb") as f:
