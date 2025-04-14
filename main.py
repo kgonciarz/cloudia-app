@@ -196,6 +196,10 @@ if delivery_file and exporter_name:
         unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
         exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
+# Define all_ids_valid and any_quota_exceeded based on the conditions
+        all_ids_valid = len(unknown_farmers) == 0
+        any_quota_exceeded = not exceeded_df.empty
+
         if len(unknown_farmers) > 0:
             st.error("The following farmers are NOT in the database:")
             st.write(list(unknown_farmers))
@@ -225,7 +229,7 @@ if delivery_file and exporter_name:
                     total_kg=total_kg,
                     logo_path=LOGO_PATH,  # CloudIA logo
                     logo_cocoa=LOGO_COCOA  # CocoaSource logo
-                )
+        )
 
         # Open the generated PDF and allow the user to download it
                 with open(pdf_file, "rb") as f:
@@ -238,6 +242,7 @@ if delivery_file and exporter_name:
         else:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
+
 
 
 
