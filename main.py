@@ -216,7 +216,7 @@ if delivery_file and exporter_name:
                     farmer_count = uploaded_df['farmer_id'].nunique()
 
                     pdf_file = generate_pdf_confirmation(
-                        lot_numbers=uploaded_df['lot_number'].unique(),
+                        lot_numbers=lot_totals.index.tolist(),
                         exporter_name=exporter_name,
                         farmer_count=uploaded_df['farmer_id'].nunique(),
                         total_kg=total_kg,
