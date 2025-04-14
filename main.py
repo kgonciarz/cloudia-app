@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import sqlite3
+from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
@@ -33,7 +33,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ---------------------- LOAD FARMER DATA ----------------------
+# ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
     farmers_df = pd.read_excel(FARMER_DB_PATH)
@@ -121,17 +121,37 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 # ---------------------- STREAMLIT UI ----------------------
 init_db()
 
-# Load the uploaded template
-uploaded_file = st.file_uploader("Upload Template", type=["xlsx"])
+# Logo and Title
+# Display both CloudIA and CocoaSource logos side by side
+col1, col2 = st.columns(2)  # Create two columns for side-by-side layout
 
-if uploaded_file is not None:
-    # Load the template file into a DataFrame
-    uploaded_df = pd.read_excel(uploaded_file)
+with col1:
+    # Display the CloudIA logo
+    logo = Image.open(LOGO_PATH)
+    st.image(logo, width=150)
 
-    # Standardize column names to lowercase and strip spaces
-    uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+with col2:
+    # Display the CocoaSource logo
+    cocoa_logo = Image.open(LOGO_COCOA)
+    st.image(cocoa_logo, width=300)
 
-    # Define expected columns (also in lowercase)
+# Title and Subtitle
+st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
+st.title("CloudIA - Farmer Quota Verification System")
+
+# ---------------------- LOAD FARMER DATABASE ----------------------
+farmers_df = pd.read_excel(FARMER_DB_PATH)
+farmers_df.columns = farmers_df.columns.str.lower()
+
+# ---------------------- UPLOAD DELIVERY FILE ----------------------
+delivery_file = st.sidebar.file_uploader("Upload Delivery File", type=["xlsx"])
+exporter_name = st.sidebar.text_input("Exporter Name")
+
+if delivery_file and exporter_name:
+    delivery_df = pd.read_excel(delivery_file)
+    delivery_df.columns = delivery_df.columns.str.lower()
+
+    # Map the columns according to the expected names
     expected_columns = {
         'cooperative_name': 'cooperative name',
         'export_lot': 'export lot n°/connaissement',
@@ -143,35 +163,11 @@ if uploaded_file is not None:
         'exporter': 'exporter'
     }
 
-    # Check if the required columns are present in the dataframe
-    missing_columns = [col for col in expected_columns.values() if col not in uploaded_df.columns]
-
-    if missing_columns:
-        st.error(f"Delivery file is missing the following required columns: {', '.join(missing_columns)}")
+    # Ensure the delivery file contains the correct columns
+    if not all(col in delivery_df.columns for col in expected_columns.values()):
+        st.error(f"Delivery file must include the required columns: {', '.join(expected_columns.values())}")
     else:
-        st.success("All required columns are present!")
-
-    # Show the updated dataframe
-    st.write("Updated Template with Standardized Column Names:")
-    st.dataframe(uploaded_df)
-
-    # Title and Subtitle
-    st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
-    st.title("CloudIA - Farmer Quota Verification System")
-
-    # ---------------------- LOAD FARMER DATABASE ----------------------
-    farmers_df = pd.read_excel(FARMER_DB_PATH)
-    farmers_df.columns = farmers_df.columns.str.lower()
-
-    # ---------------------- UPLOAD DELIVERY FILE ----------------------
-    delivery_file = st.sidebar.file_uploader("Upload Delivery File", type=["xlsx"])
-    exporter_name = st.sidebar.text_input("Exporter Name")
-
-    if delivery_file and exporter_name:
-        delivery_df = pd.read_excel(delivery_file)
-        delivery_df.columns = delivery_df.columns.str.lower()
-
-        # Map the columns
+        # Map and rename the columns
         delivery_df.rename(columns={
             'cooperative_name': 'cooperative_name',
             'export_lot': 'export_lot',
