@@ -211,7 +211,7 @@ if delivery_file and exporter_name:
             if lot_status_ok:
                 st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
                 if st.button("Generate Approval PDF"):
-                    total_kg = uploaded_df['delivered_kg'].sum()
+                    total_kg = sum(lot_kg_summary.values())
                     farmer_count = uploaded_df['farmer_id'].nunique()
 
                     pdf_file = generate_pdf_confirmation(
