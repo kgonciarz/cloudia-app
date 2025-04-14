@@ -158,6 +158,14 @@ if delivery_file and exporter_name:
     else:
         st.success("All required columns are present!")
 
+        if 'date of purchase from cooperative' in uploaded_df.columns:
+            today_str = datetime.today().strftime('%Y-%m-%d')
+            uploaded_df['date of purchase from cooperative'] = uploaded_df['date of purchase from cooperative'].fillna(today_str)
+
+        if uploaded_df.isnull().values.any():
+            st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
+            st.stop()  # Stop further execution
+
         uploaded_df.rename(columns={
             'export lot n°/connaissement': 'lot_number',
             'net weight (kg)': 'delivered_kg'
@@ -214,7 +222,7 @@ if delivery_file and exporter_name:
                     lot_totals = uploaded_df.groupby('lot_number')['delivered_kg'].sum()
                     total_mt = sum(round(kg / 1000, 2) for kg in lot_totals.values)  # <<< NOWE
                     total_kg = int(total_mt * 1000)
-                    
+
                     farmer_count = uploaded_df['farmer_id'].nunique()
 
                     pdf_file = generate_pdf_confirmation(
