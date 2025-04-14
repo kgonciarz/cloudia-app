@@ -127,7 +127,7 @@ with col1:
 with col2:
     # Display the CocoaSource logo
     cocoa_logo = Image.open(LOGO_COCOA)
-    st.image(cocoa_logo, width=150)
+    st.image(cocoa_logo, width=300)
 
 # Title and Subtitle
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
