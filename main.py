@@ -209,33 +209,36 @@ if delivery_file and exporter_name:
         merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
-        all_ids_valid = len(unknown_farmers) == 0
-        any_quota_exceeded = not exceeded_df.empty
-
         if all_ids_valid and not any_quota_exceeded:
             st.success("File approved. All farmers valid and within quotas.")
 
+    # Button to generate PDF
             if st.button("Generate Approval PDF"):
-                total_kg = delivery_df['delivered_kg'].sum()
-                farmer_count = delivery_df['farmer_id'].nunique()
+                total_kg = delivery_df['delivered_kg'].sum()  # Total delivered kilograms
+                farmer_count = delivery_df['farmer_id'].nunique()  # Count of unique farmers
+
+        # Generate PDF file with the required parameters, including both logos
                 pdf_file = generate_pdf_confirmation(
-                    lot_numbers=delivery_df['lot_number'].unique(),  # Pass all lot numbers
+                    lot_numbers=delivery_df['lot_number'].unique(),  # Pass all unique lot numbers
                     exporter_name=exporter_name,
                     farmer_count=farmer_count,
                     total_kg=total_kg,
-                    logo_path=LOGO_PATH,
-                    logo_cocoa=LOGO_COCOA
+                    logo_path=LOGO_PATH,  # CloudIA logo
+                    logo_cocoa=LOGO_COCOA  # CocoaSource logo
                 )
 
+        # Open the generated PDF and allow the user to download it
                 with open(pdf_file, "rb") as f:
                     st.download_button(
-                        label="Download Approval PDF",
-                        data=f,
-                        file_name=pdf_file,
-                        mime="application/pdf"
+                        label="Download Approval PDF",  # Button label for download
+                        data=f,  # PDF data
+                        file_name=pdf_file,  # Use the generated PDF file name
+                        mime="application/pdf"  # MIME type for PDF
                     )
         else:
+    # Display a warning if the file is not approved due to unknown farmers or quota violations
             st.warning("File not approved – check for unknown farmers or quota violations.")
+
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
