@@ -224,7 +224,7 @@ if delivery_file and exporter_name:
 with st.expander("Admin Panel – View Delivery & Approval History"):
 
         # Display your company logo in the admin panel
-    logo_path = "C:/Users/Klaudia Gonciarz/OneDrive - Cocoasource SA/Bureau/cloudia-quota-app/cocoasourcelogo.jpg"  # Path to the logo you uploaded
+    logo_path = "cocoasourcelogo.jpg"  # Path to the logo you uploaded
     logo = Image.open(logo_path)
     st.image(logo, width=150)  # Adjust width as necessary
 
