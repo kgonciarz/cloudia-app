@@ -194,8 +194,39 @@ if delivery_file and exporter_name:
         st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
 
         if all_ids_valid and not any_quota_exceeded:
-            st.success("File approved. All farmers valid and within quotas.")
-            if st.button("Generate Approval PDF"):
+    # Check total delivered kg per lot
+            lot_totals = uploaded_df.groupby('lot_number')['delivered_kg'].sum()
+            lot_status_ok = lot_totals.between(21000, 29000).all()  # Between 21 MT and 29 MT
+
+            if lot_status_ok:
+                st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
+                if st.button("Generate Approval PDF"):
+                    total_kg = uploaded_df['delivered_kg'].sum()
+                    farmer_count = uploaded_df['farmer_id'].nunique()
+
+                    pdf_file = generate_pdf_confirmation(
+                        lot_numbers=uploaded_df['lot_number'].unique(),
+                        exporter_name=exporter_name,
+                        farmer_count=farmer_count,
+                        total_kg=total_kg,
+                        logo_path=LOGO_PATH,
+                        logo_cocoa=LOGO_COCOA
+                    )
+
+                    with open(pdf_file, "rb") as f:
+                        st.download_button(
+                            label="Download Approval PDF",
+                            data=f,
+                            file_name=pdf_file,
+                            mime="application/pdf"
+                        )
+            else:
+                st.warning("File not approved – Delivered kg per lot must be between 21MT and 29MT.")
+                st.write("Delivered kg per lot summary:")
+                st.dataframe(lot_totals)
+        else:
+            st.warning("File not approved – check for unknown farmers or quota violations.")
+
                 total_kg = uploaded_df['delivered_kg'].sum()
                 farmer_count = uploaded_df['farmer_id'].nunique()
 
