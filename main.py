@@ -11,6 +11,7 @@ import os
 QUOTA_PER_HA = 800
 DB_FILE = "quota.db"
 LOGO_PATH = "cloudia_logo.png"  # Make sure this file is in your directory
+LOGO_COCOA = "cocoasourcelogo.jpg"
 FARMER_DB_PATH = "farmer_database.xlsx"  # Static farmer register file
 
 # ---------------------- DATABASE INIT ----------------------
@@ -74,13 +75,16 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     conn.close()
 
 # ---------------------- PDF GENERATOR ----------------------
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None, logo_cocoa = None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
     if logo_path and os.path.exists(logo_path):
         pdf.image(logo_path, x=10, y=8, w=33)
+
+    if logo_cocoa and os.path.exists(logo_cocoa):
+        pdf.image(logo_cocoa, x=150, y=8, w=33)
 
     pdf.ln(20)
     pdf.set_font("Arial", 'B', 14)
@@ -112,8 +116,20 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 init_db()
 
 # Logo and Title
-logo = Image.open(LOGO_PATH)
-st.image(logo, width=150)
+# Display both CloudIA and CocoaSource logos side by side
+col1, col2 = st.columns(2)  # Create two columns for side-by-side layout
+
+with col1:
+    # Display the CloudIA logo
+    logo = Image.open(LOGO_PATH)
+    st.image(logo, width=150)
+
+with col2:
+    # Display the CocoaSource logo
+    cocoa_logo = Image.open(LOGO_COCOA)
+    st.image(cocoa_logo, width=150)
+
+# Title and Subtitle
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
