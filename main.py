@@ -151,107 +151,113 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    # Rename columns to match expected format
-    delivery_df.rename(columns={'farmer_id': 'coode producteur', 'poids net': 'poids net', 'n° du lot': 'lot'}, inplace=True)
+    # Map columns from the uploaded file to the expected ones
+    expected_columns = {
+        'cooperative_name': 'Cooperative Name',
+        'export_lot': 'Export lot N°/Connaissement',
+        'date_of_purchase': 'Date of purchase from cooperative',
+        'certification': 'Certification',
+        'farmer_id': 'Farmer_ID',
+        'farm_id': 'Farm_ID',
+        'net_weight': 'Net Weight (KG)',
+        'exporter': 'Exporter'
+    }
 
-    if not {'coode producteur', 'poids net', 'lot'}.issubset(delivery_df.columns):
-        st.error("Delivery file must include 'coode producteur', 'poids net', 'lot'")
+    # Standardize column names to expected ones (mapping from template)
+    delivery_df = delivery_df.rename(columns={col: expected_columns.get(col, col) for col in delivery_df.columns})
+
+    # Fill missing 'Date of purchase from cooperative' with today's date
+    if 'Date of purchase from cooperative' in delivery_df.columns:
+        delivery_df['Date of purchase from cooperative'] = delivery_df['Date of purchase from cooperative'].fillna(datetime.now().strftime('%Y-%m-%d'))
+
+    # Replace other missing values with 'N/A' or appropriate default
+    delivery_df = delivery_df.fillna('N/A')
+
+    # Clean all text fields and remove any non-UTF-8 characters
+    def clean_text(value):
+        if isinstance(value, str):
+            return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+        return value
+
+    # Apply the cleaning function
+    delivery_df = delivery_df.applymap(clean_text)
+
+    # Add exporter name and process the file
+    delivery_df['exporter_name'] = exporter_name
+    delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
+    delivery_df = delivery_df.drop_duplicates(subset=['export_lot', 'exporter_name', 'farmer_id'], keep='last')
+
+    # Insert into DB and process further
+    lot_number = delivery_df['export_lot'].iloc[0]
+    delete_existing_delivery(lot_number, exporter_name)
+    save_delivery_to_db(delivery_df)
+
+    # Calculate max quota for farmers
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
+    farmers_df['max_quota_kg'] = (farmers_df['area_ha'] * QUOTA_PER_HA).round(2)
+
+    conn = sqlite3.connect(DB_FILE)
+    total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
+    conn.close()
+
+    # Merge farmers with deliveries
+    filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
+    merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
+
+    # Calculate quota used percentage and status
+    merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
+    merged_df['quota_used_pct'] = merged_df['quota_used_pct'].round(2)
+    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
+
+    unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+    exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
+
+    # Define all_ids_valid and any_quota_exceeded based on the conditions
+    all_ids_valid = len(unknown_farmers) == 0
+    any_quota_exceeded = not exceeded_df.empty
+
+    if len(unknown_farmers) > 0:
+        st.error("The following farmers are NOT in the database:")
+        st.write(list(unknown_farmers))
+
+    if not exceeded_df.empty:
+        st.warning("These farmers have exceeded their quota:")
+        st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
+
+    st.write("### Quota Overview")
+    merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+    st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
+
+    # Now checking for file approval based on conditions
+    if all_ids_valid and not any_quota_exceeded:
+        st.success("File approved. All farmers valid and within quotas.")
+
+        # Button to generate PDF
+        if st.button("Generate Approval PDF"):
+            total_kg = delivery_df['delivered_kg'].sum()  # Total delivered kilograms
+            farmer_count = delivery_df['farmer_id'].nunique()  # Count of unique farmers
+
+            # Generate PDF file with the required parameters, including both logos
+            pdf_file = generate_pdf_confirmation(
+                lot_numbers=delivery_df['export_lot'].unique(),  # Pass all unique lot numbers
+                exporter_name=exporter_name,
+                farmer_count=farmer_count,
+                total_kg=total_kg,
+                logo_path=LOGO_PATH,  # CloudIA logo
+                logo_cocoa=LOGO_COCOA  # CocoaSource logo
+            )
+
+            # Open the generated PDF and allow the user to download it
+            with open(pdf_file, "rb") as f:
+                st.download_button(
+                    label="Download Approval PDF",  # Button label for download
+                    data=f,  # PDF data
+                    file_name=pdf_file,  # Use the generated PDF file name
+                    mime="application/pdf"  # MIME type for PDF
+                )
     else:
-        # Standardize column names
-        delivery_df = delivery_df.rename(columns={
-            'coode producteur': 'farmer_id',
-            'poids net': 'delivered_kg',
-            'lot': 'lot_number'
-        })
-
-        # Clean all text fields and remove any non-UTF-8 characters
-        def clean_text(value):
-            if isinstance(value, str):
-                return value.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
-            return value
-
-        # Apply the cleaning function
-        delivery_df = delivery_df.applymap(clean_text)
-
-        # Add exporter name and process the file
-        delivery_df['exporter_name'] = exporter_name
-        delivery_df['farmer_id'] = delivery_df['farmer_id'].astype(str).str.lower().str.strip()
-        delivery_df = delivery_df.drop_duplicates(subset=['lot_number', 'exporter_name', 'farmer_id'], keep='last')
-
-        # Insert into DB and process further
-        lot_number = delivery_df['lot_number'].iloc[0]
-        delete_existing_delivery(lot_number, exporter_name)
-        save_delivery_to_db(delivery_df)
-
-        # Calculate max quota for farmers
-        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-        farmers_df['max_quota_kg'] = (farmers_df['area_ha'] * QUOTA_PER_HA).round(2)
-
-        conn = sqlite3.connect(DB_FILE)
-        total_df = pd.read_sql_query('''SELECT farmer_id, SUM(delivered_kg) as delivered_kg FROM deliveries GROUP BY farmer_id''', conn)
-        conn.close()
-
-        # Merge farmers with deliveries
-        filtered_farmers_df = farmers_df[farmers_df['farmer_id'].isin(delivery_df['farmer_id'])]
-        merged_df = pd.merge(filtered_farmers_df, total_df, on='farmer_id', how='left').fillna({'delivered_kg': 0})
-
-        # Calculate quota used percentage and status
-        merged_df['quota_used_pct'] = (merged_df['delivered_kg'] / merged_df['max_quota_kg']) * 100
-        merged_df['quota_used_pct'] = merged_df['quota_used_pct'].round(2)
-        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
-
-        unknown_farmers = delivery_df[~delivery_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-        exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
-
-# Define all_ids_valid and any_quota_exceeded based on the conditions
-        all_ids_valid = len(unknown_farmers) == 0
-        any_quota_exceeded = not exceeded_df.empty
-
-        if len(unknown_farmers) > 0:
-            st.error("The following farmers are NOT in the database:")
-            st.write(list(unknown_farmers))
-
-        if not exceeded_df.empty:
-            st.warning("These farmers have exceeded their quota:")
-            st.dataframe(exceeded_df[['farmer_id', 'delivered_kg', 'max_quota_kg', 'quota_used_pct']])
-
-        st.write("### Quota Overview")
-        merged_df = merged_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
-        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'delivered_kg', 'quota_used_pct', 'quota_status']])
-
-# Now checking for file approval based on conditions
-        if all_ids_valid and not any_quota_exceeded:
-            st.success("File approved. All farmers valid and within quotas.")
-
-    # Button to generate PDF
-            if st.button("Generate Approval PDF"):
-                total_kg = delivery_df['delivered_kg'].sum()  # Total delivered kilograms
-                farmer_count = delivery_df['farmer_id'].nunique()  # Count of unique farmers
-
-        # Generate PDF file with the required parameters, including both logos
-                pdf_file = generate_pdf_confirmation(
-                    lot_numbers=delivery_df['lot_number'].unique(),  # Pass all unique lot numbers
-                    exporter_name=exporter_name,
-                    farmer_count=farmer_count,
-                    total_kg=total_kg,
-                    logo_path=LOGO_PATH,  # CloudIA logo
-                    logo_cocoa=LOGO_COCOA  # CocoaSource logo
-        )
-
-        # Open the generated PDF and allow the user to download it
-                with open(pdf_file, "rb") as f:
-                    st.download_button(
-                        label="Download Approval PDF",  # Button label for download
-                        data=f,  # PDF data
-                        file_name=pdf_file,  # Use the generated PDF file name
-                        mime="application/pdf"  # MIME type for PDF
-                    )
-        else:
     # Display a warning if the file is not approved due to unknown farmers or quota violations
-            st.warning("File not approved – check for unknown farmers or quota violations.")
-
-
-
+        st.warning("File not approved – check for unknown farmers or quota violations.")
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
