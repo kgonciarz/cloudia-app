@@ -151,7 +151,7 @@ if delivery_file and exporter_name:
     delivery_df = pd.read_excel(delivery_file)
     delivery_df.columns = delivery_df.columns.str.lower()
 
-    # Map columns from the uploaded file to the expected ones
+    # Map columns from the uploaded file to the expected ones based on the first row (headers)
     expected_columns = {
         'cooperative_name': 'Cooperative Name',
         'export_lot': 'Export lot N°/Connaissement',
@@ -164,7 +164,8 @@ if delivery_file and exporter_name:
     }
 
     # Standardize column names to expected ones (mapping from template)
-    delivery_df = delivery_df.rename(columns={col: expected_columns.get(col, col) for col in delivery_df.columns})
+    delivery_df.columns = [col.strip().lower() for col in delivery_df.columns]  # Remove extra spaces and lowercase
+    delivery_df.rename(columns={col: expected_columns.get(col, col) for col in delivery_df.columns}, inplace=True)
 
     # Check if the required columns exist after renaming
     required_columns = ['cooperative_name', 'export_lot', 'date_of_purchase', 'certification', 'farmer_id', 'farm_id', 'net_weight', 'exporter']
