@@ -224,30 +224,10 @@ if delivery_file and exporter_name:
                 st.warning("File not approved – Delivered kg per lot must be between 21MT and 29MT.")
                 st.write("Delivered kg per lot summary:")
                 st.dataframe(lot_totals)
+
         else:
             st.warning("File not approved – check for unknown farmers or quota violations.")
 
-                total_kg = uploaded_df['delivered_kg'].sum()
-                farmer_count = uploaded_df['farmer_id'].nunique()
-
-                pdf_file = generate_pdf_confirmation(
-                    lot_numbers=uploaded_df['lot_number'].unique(),
-                    exporter_name=exporter_name,
-                    farmer_count=farmer_count,
-                    total_kg=total_kg,
-                    logo_path=LOGO_PATH,
-                    logo_cocoa=LOGO_COCOA
-                )
-
-                with open(pdf_file, "rb") as f:
-                    st.download_button(
-                        label="Download Approval PDF",
-                        data=f,
-                        file_name=pdf_file,
-                        mime="application/pdf"
-                    )
-        else:
-            st.warning("File not approved – check for unknown farmers or quota violations.")
 
 # ---------------------- ADMIN PANEL ----------------------
 with st.expander("Admin Panel – View Delivery & Approval History"):
