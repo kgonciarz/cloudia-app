@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+from sqlalchemy import create_engine, text
 from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
+
+@st.cache_resource
+def get_engine():
+    return create_engine(st.secrets["database"]["url"])
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
@@ -42,31 +46,52 @@ def load_farmer_data():
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM deliveries WHERE lot_number = ? AND exporter_name = ?", (lot_number, exporter_name))
-    conn.commit()
-    conn.close()
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("""
+            DELETE FROM traceability 
+            WHERE lot_number = :lot AND exporter_name = :exporter
+        """), {"lot": lot_number, "exporter": exporter_name})
 
 # ---------------------- SAVE TO DB ----------------------
-def save_delivery_to_db(df):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    for _, row in df.iterrows():
-        cursor.execute('''REPLACE INTO deliveries (lot_number, exporter_name, farmer_id, delivered_kg)
-                        VALUES (?, ?, ?, ?)''', (row['lot_number'], row['exporter_name'], row['farmer_id'], row['delivered_kg']))
-    conn.commit()
-    conn.close()
+def save_delivery_to_supabase(df):
+    engine = get_engine()
+    df_for_db = df.copy()
+
+    df_for_db = df_for_db.rename(columns={
+        'cooperative name': 'cooperative_name',
+        'export lot n°/connaissement': 'export_lot',
+        'date of purchase from cooperative': 'purchase_date',
+        'certification': 'certification',
+        'farmer_id': 'farmer_id',
+        'farm_id': 'farm_id',
+        'net weight (kg)': 'net_weight_kg',
+        'exporter': 'exporter'
+    })
+
+    # Upewnij się, że kolumny są czyste
+    df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
+
+    # Zapisz do Supabase
+    df_for_db.to_sql("traceability", engine, if_exists="append", index=False)
+
 
 # ---------------------- SAVE APPROVAL ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    engine = get_engine()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute('''INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name)
-                    VALUES (?, ?, ?, ?, ?)''', (timestamp, lot_number, exporter_name, approved_by, file_name))
-    conn.commit()
-    conn.close()
+
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name)
+            VALUES (:ts, :lot, :exp, :by, :file)
+        """), {
+            "ts": timestamp,
+            "lot": lot_number,
+            "exp": exporter_name,
+            "by": approved_by,
+            "file": file_name
+        })
 
 # ---------------------- PDF GENERATOR ----------------------
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
@@ -178,7 +203,7 @@ if delivery_file and exporter_name:
 
         for lot in uploaded_df['lot_number'].unique():
             delete_existing_delivery(lot, exporter_name)
-        save_delivery_to_db(uploaded_df)
+        save_delivery_to_supabase(uploaded_df)
 
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
         farmers_df['max_quota_kg'] = (farmers_df['area_ha'] * QUOTA_PER_HA).round(2)
