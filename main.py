@@ -19,23 +19,23 @@ LOGO_COCOA = "cocoasourcelogo.jpg"
 FARMER_DB_PATH = "farmer_database.xlsx"
 
 # ---------------------- DATABASE INIT ----------------------
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS deliveries (
-        lot_number TEXT,
-        exporter_name TEXT,
-        farmer_id TEXT,
-        delivered_kg REAL,
-        PRIMARY KEY (lot_number, exporter_name, farmer_id))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS approvals (
-        timestamp TEXT,
-        lot_number TEXT,
-        exporter_name TEXT,
-        approved_by TEXT,
-        file_name TEXT)''')
-    conn.commit()
-    conn.close()
+#def init_db():
+ #   conn = sqlite3.connect(DB_FILE)
+  #  cursor = conn.cursor()
+   # cursor.execute('''CREATE TABLE IF NOT EXISTS deliveries (
+    #    lot_number TEXT,
+     #   exporter_name TEXT,
+      #  farmer_id TEXT,
+       # delivered_kg REAL,
+        #PRIMARY KEY (lot_number, exporter_name, farmer_id))''')
+    #cursor.execute('''CREATE TABLE IF NOT EXISTS approvals (
+     #   timestamp TEXT,
+      #  lot_number TEXT,
+       # exporter_name TEXT,
+        #approved_by TEXT,
+        #file_name TEXT)''')
+    #conn.commit()
+    #conn.close()
 
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
