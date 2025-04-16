@@ -305,12 +305,12 @@ with st.expander("Admin Panel – View Delivery & Approval History"):
     elif password:
         st.error("Incorrect password")
 
-        if st.button("🔌 Test connection"):
+if st.button("🔌 Test connection"):
     try:
         engine = get_engine()
         with engine.connect() as conn:
             result = conn.execute(text("SELECT NOW()"))
             now = result.scalar()
-            st.success(f"Połączenie działa! Serwer odpowiada: {now}")
+            st.success(f"✅ Połączenie działa! Serwer odpowiada: {now}")
     except Exception as e:
-        st.error(f"Błąd połączenia z Supabase: {e}")
+        st.error(f"❌ Błąd połączenia z Supabase: {e}")
