@@ -140,7 +140,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     return file_name
 
 # ---------------------- STREAMLIT UI ----------------------
-init_db()
+#init_db()
 
 # Logo and Title
 col1, col2 = st.columns(2)
