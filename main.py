@@ -1,41 +1,26 @@
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine, text
 from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
 import os
-
-@st.cache_resource
-def get_engine():
-    return create_engine(st.secrets["database"]["url"])
+from supabase import create_client, Client
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
-DB_FILE = "quota.db"
 LOGO_PATH = "cloudia_logo.png"
 LOGO_COCOA = "cocoasourcelogo.jpg"
 FARMER_DB_PATH = "farmer_database.xlsx"
 
-# ---------------------- DATABASE INIT ----------------------
-#def init_db():
- #   conn = sqlite3.connect(DB_FILE)
-  #  cursor = conn.cursor()
-   # cursor.execute('''CREATE TABLE IF NOT EXISTS deliveries (
-    #    lot_number TEXT,
-     #   exporter_name TEXT,
-      #  farmer_id TEXT,
-       # delivered_kg REAL,
-        #PRIMARY KEY (lot_number, exporter_name, farmer_id))''')
-    #cursor.execute('''CREATE TABLE IF NOT EXISTS approvals (
-     #   timestamp TEXT,
-      #  lot_number TEXT,
-       # exporter_name TEXT,
-        #approved_by TEXT,
-        #file_name TEXT)''')
-    #conn.commit()
-    #conn.close()
+# ---------------------- SUPABASE INIT ----------------------
+@st.cache_resource
+def get_supabase() -> Client:
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = get_supabase()
 
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
@@ -46,18 +31,15 @@ def load_farmer_data():
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
-    engine = get_engine()
-    with engine.begin() as conn:
-        conn.execute(text("""
-            DELETE FROM traceability 
-            WHERE lot_number = :lot AND exporter_name = :exporter
-        """), {"lot": lot_number, "exporter": exporter_name})
+    supabase.table("traceability").delete().match({
+        "lot_number": lot_number,
+        "exporter_name": exporter_name
+    }).execute()
+
 
 # ---------------------- SAVE TO DB ----------------------
 def save_delivery_to_supabase(df):
-    engine = get_engine()
     df_for_db = df.copy()
-
     df_for_db = df_for_db.rename(columns={
         'cooperative name': 'cooperative_name',
         'export lot n°/connaissement': 'export_lot',
@@ -68,30 +50,24 @@ def save_delivery_to_supabase(df):
         'net weight (kg)': 'net_weight_kg',
         'exporter': 'exporter'
     })
-
-    # Upewnij się, że kolumny są czyste
     df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
+    
+    data = df_for_db.to_dict(orient="records")
+    supabase.table("traceability").insert(data).execute()
 
-    # Zapisz do Supabase
-    df_for_db.to_sql("traceability", engine, if_exists="append", index=False)
 
 
 # ---------------------- SAVE APPROVAL ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
-    engine = get_engine()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    supabase.table("approvals").insert({
+        "timestamp": timestamp,
+        "lot_number": lot_number,
+        "exporter_name": exporter_name,
+        "approved_by": approved_by,
+        "file_name": file_name
+    }).execute()
 
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO approvals (timestamp, lot_number, exporter_name, approved_by, file_name)
-            VALUES (:ts, :lot, :exp, :by, :file)
-        """), {
-            "ts": timestamp,
-            "lot": lot_number,
-            "exp": exporter_name,
-            "by": approved_by,
-            "file": file_name
-        })
 
 # ---------------------- PDF GENERATOR ----------------------
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
@@ -307,10 +283,7 @@ with st.expander("Admin Panel – View Delivery & Approval History"):
 
 if st.button("🔌 Test connection"):
     try:
-        engine = get_engine()
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT NOW()"))
-            now = result.scalar()
-            st.success(f"✅ Połączenie działa! Serwer odpowiada: {now}")
+        res = supabase.table("traceability").select("*").limit(1).execute()
+        st.success("✅ Supabase API działa!")
     except Exception as e:
         st.error(f"❌ Błąd połączenia z Supabase: {e}")
