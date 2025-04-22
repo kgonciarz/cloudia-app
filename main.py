@@ -129,18 +129,18 @@ if delivery_file and exporter_name:
         st.error(f"Delivery file is missing the following required columns: {', '.join(missing_columns)}")
         st.stop()
 
-    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(
-    datetime.today().strftime('%Y-%m-%d'))
-
-    if uploaded_df.isnull().values.any():
-        st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
-        st.stop()
-
     uploaded_df.rename(columns={
         'export lot n°/connaissement': 'export_lot',
         'net weight (kg)': 'net_weight_kg',
         'date of purchase from cooperative': 'purchase_date'
     }, inplace=True)
+
+    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(
+        datetime.today().strftime('%Y-%m-%d'))
+
+    if uploaded_df.isnull().values.any():
+        st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
+        st.stop()
 
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.lower().str.strip()
     uploaded_df['exporter'] = exporter_name
