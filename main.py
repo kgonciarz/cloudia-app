@@ -167,6 +167,9 @@ if delivery_file and exporter_name:
     merged_df['quota_used_pct'] = (merged_df['net_weight_kg'] / merged_df['max_quota_kg']) * 100
     merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
 
+    st.write("Debug: Grouped weights per farmer")
+    st.dataframe(trace_grouped)
+
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
     exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
