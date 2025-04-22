@@ -150,11 +150,6 @@ if delivery_file and exporter_name:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
-# Konwersja wag na liczby i debug
-    uploaded_df['net_weight_kg'] = pd.to_numeric(uploaded_df['net_weight_kg'], errors='coerce')
-    st.write("Debug: Delivery net_weight_kg values")
-    st.dataframe(uploaded_df[['farmer_id', 'net_weight_kg']])
-
 
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
