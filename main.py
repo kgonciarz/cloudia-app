@@ -54,7 +54,9 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     "exporter_name": exporter_name,
     "approved_by": approved_by,
     "file_name": file_name
-}).execute()
+}
+print("DATA TO SAVE >>>", data)
+).execute()
 
 
 # ---------------------- PDF GENERATOR ----------------------
