@@ -48,15 +48,18 @@ def save_delivery_to_supabase(df):
 # ---------------------- SAVE APPROVAL ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    supabase.table("approvals").insert({
-    "created_at": timestamp,
-    "lot_number": lot_number,
-    "exporter_name": exporter_name,
-    "approved_by": approved_by,
-    "file_name": file_name
-}
-print("DATA TO SAVE >>>", data)
-).execute()
+
+    data = {
+        "created_at": timestamp,
+        "lot_number": lot_number,
+        "exporter_name": exporter_name,
+        "approved_by": approved_by,
+        "file_name": file_name
+    }
+
+    print("DATA TO SAVE >>>", data)  # debug – zobacz co próbujemy wysłać
+
+    supabase.table("approvals").insert(data).execute()
 
 
 # ---------------------- PDF GENERATOR ----------------------
