@@ -49,12 +49,13 @@ def save_delivery_to_supabase(df):
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     supabase.table("approvals").insert({
-        "timestamp": timestamp,
-        "lot_number": lot_number,
-        "exporter_name": exporter_name,
-        "approved_by": approved_by,
-        "file_name": file_name
-    }).execute()
+    "created_at": timestamp,
+    "lot_number": lot_number,
+    "exporter_name": exporter_name,
+    "approved_by": approved_by,
+    "file_name": file_name
+}).execute()
+
 
 # ---------------------- PDF GENERATOR ----------------------
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
