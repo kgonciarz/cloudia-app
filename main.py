@@ -88,7 +88,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.set_font("Arial", "B", 14)
     pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
     pdf.image(logo_path, x=10, y=20, w=40)
-    pdf.image(logo_cocoa, x=100, y=20, w=40)
+    pdf.image(logo_cocoa, x=100, y=60, w=40)
     pdf.set_y(60)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
