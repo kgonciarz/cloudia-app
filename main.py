@@ -160,6 +160,12 @@ if delivery_file and exporter_name:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
+    if "soc-02598" in farmers_df['farmer_id'].values:
+    st.success("Farmer soc-02598 IS in the DB!")
+
+    if "soc-02598" in uploaded_df['farmer_id'].values:
+    st.success("Farmer soc-02598 IS in the Upload!")
+
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
     save_delivery_to_supabase(uploaded_df)
