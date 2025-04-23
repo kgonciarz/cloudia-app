@@ -87,8 +87,8 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
     pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
-    pdf.image(logo_path, x=110, y=4, w=40)
-    pdf.image(logo_cocoa, x=160, y=20, w=40)
+    pdf.image(logo_path, x=10, y=20, w=40)
+    pdf.image(logo_cocoa, x=200, y=4, w=40)
     pdf.set_y(60)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
@@ -100,7 +100,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.cell(0, 10, "Lot Summary", ln=True)
     pdf.set_font("Arial", "", 12)
     for lot, kg in lot_kg_summary.items():
-        pdf.cell(0, 10, f"{lot}: {kg} kg", ln=True)
+        pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
     filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(filename)
     return filename
