@@ -32,8 +32,19 @@ def clean_farmer_id(val):
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    response = supabase.table("farmers").select("*").range(0, 20000).execute()
-    farmers_df = pd.DataFrame(response.data)
+    all_rows = []
+    limit = 1000
+    offset = 0
+
+    while True:
+        response = supabase.table("farmers").select("*").range(offset, offset + limit - 1).execute()
+        rows = response.data
+        if not rows:
+            break
+        all_rows.extend(rows)
+        offset += limit
+
+    farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
@@ -42,6 +53,7 @@ def load_farmer_data():
     st.write("Sample farmer IDs from DB:", farmers_df['farmer_id'].head(10).tolist())
 
     return farmers_df
+
 
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
