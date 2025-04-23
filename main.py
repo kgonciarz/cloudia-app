@@ -59,11 +59,11 @@ def save_delivery_to_supabase(df):
     data = df_for_db.to_dict(orient="records")
     supabase.table("traceability").insert(data).execute()
 
-def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
+def save_approval_to_db(lot_numbers, exporter_name, file_name, approved_by="CloudIA"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     data = {
         "created_at": timestamp,
-        "lot_number": lot_number,
+        "lot_number": ", ".join(str(l) for l in lot_numbers),
         "exporter_name": exporter_name,
         "approved_by": approved_by,
         "file_name": file_name
@@ -92,7 +92,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.set_y(60)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
-    pdf.multi_cell(0, 10, f"Lots: {', '.join(str(lot) for lot in lot_numbers)}")
+    pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {total_kg} kg")
     pdf.ln(5)
@@ -101,11 +101,10 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.set_font("Arial", "", 12)
     for lot, kg in lot_kg_summary.items():
         pdf.cell(0, 10, f"{lot}: {kg} kg", ln=True)
-    filename = f"approval_{exporter_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(filename)
     return filename
 
-# ---------------------- UI ----------------------
 col1, col2 = st.columns(2)
 with col1:
     logo = Image.open(LOGO_PATH)
@@ -130,7 +129,7 @@ if delivery_file:
         st.stop()
 
     exporter_name = uploaded_df['exporter'].dropna().astype(str).iloc[0]
-    st.success(f"Exporter detected from file: {exporter_name}")
+    st.success(f"Exporter from file: {exporter_name}")
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
@@ -194,6 +193,11 @@ if delivery_file:
                     lot_kg_summary=lot_totals.to_dict(),
                     logo_path=LOGO_PATH,
                     logo_cocoa=LOGO_COCOA
+                )
+                save_approval_to_db(
+                    lot_numbers=lot_totals.index.tolist(),
+                    exporter_name=exporter_name,
+                    file_name=pdf_file
                 )
                 with open(pdf_file, "rb") as f:
                     st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
