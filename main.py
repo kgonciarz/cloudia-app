@@ -27,11 +27,11 @@ def load_farmer_data():
     response = supabase.table("farmers").select("*").execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower().str.replace("\u00a0", "")
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
-    # DEBUG: show available columns
     st.write("Loaded farmers_df columns:", farmers_df.columns.tolist())
+    st.write("Sample farmer IDs from DB:", farmers_df['farmer_id'].head(10).tolist())
 
     return farmers_df
 
@@ -46,7 +46,7 @@ def delete_existing_delivery(lot_number, exporter_name):
 def save_delivery_to_supabase(df):
     df_for_db = df.copy()
     df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
-    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.strip().str.lower()
+    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.lower().str.strip()
     data = df_for_db.to_dict(orient="records")
     supabase.table("traceability").insert(data).execute()
 
@@ -152,7 +152,9 @@ farmers_df = load_farmer_data()
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower().str.replace("\u00a0", "")
+
+    st.write("Sample farmer IDs from upload:", uploaded_df['farmer_id'].head(10).tolist())
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
