@@ -52,25 +52,6 @@ def load_farmer_data():
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
-    return farmers_df  # 👈 TO musi być wewnątrz funkcji
-
-
-# ---------------------- STREAMLIT UI DEBUG ----------------------
-st.subheader("🔍 DEBUG: Sprawdź obecność soc-02598 w farmers_df")
-
-raw_farmer_ids = supabase.table("farmers").select("farmer_id").execute().data
-raw_ids = [r['farmer_id'] for r in raw_farmer_ids if r['farmer_id'] is not None]
-matches = [fid for fid in raw_ids if "02598" in fid]
-st.write("Z bazy (surowe):", matches)
-
-cleaned_matches = [clean_farmer_id(fid) for fid in raw_ids if "02598" in fid]
-st.write("Po clean_farmer_id():", cleaned_matches)
-
-farmers_df = load_farmer_data()
-if "soc-02598" in farmers_df['farmer_id'].values:
-    st.success("✅ soc-02598 found in farmers_df")
-else:
-    st.error("❌ soc-02598 NOT found in farmers_df")
     return farmers_df
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
@@ -132,14 +113,12 @@ exporter_name = st.sidebar.text_input("Exporter Name")
 
 farmers_df = load_farmer_data()
 
+# DEBUG: Sprawdź obecność soc-02598
 st.subheader("🔍 DEBUG: Sprawdź obecność soc-02598 w farmers_df")
-
 raw_farmer_ids = supabase.table("farmers").select("farmer_id").execute().data
 raw_ids = [r['farmer_id'] for r in raw_farmer_ids if r['farmer_id'] is not None]
-
 matches = [fid for fid in raw_ids if "02598" in fid]
 st.write("Z bazy (surowe):", matches)
-
 cleaned_matches = [clean_farmer_id(fid) for fid in raw_ids if "02598" in fid]
 st.write("Po clean_farmer_id():", cleaned_matches)
 
@@ -147,76 +126,3 @@ if "soc-02598" in farmers_df['farmer_id'].values:
     st.success("✅ soc-02598 found in farmers_df")
 else:
     st.error("❌ soc-02598 NOT found in farmers_df")
-
-
-if delivery_file and exporter_name:
-    uploaded_df = pd.read_excel(delivery_file)
-    uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
-
-    expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
-                        'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
-    missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
-
-    if missing_columns:
-        st.error(f"Delivery file is missing the following required columns: {', '.join(missing_columns)}")
-        st.stop()
-
-    uploaded_df.rename(columns={
-        'export lot n°/connaissement': 'export_lot',
-        'net weight (kg)': 'net_weight_kg',
-        'date of purchase from cooperative': 'purchase_date'
-    }, inplace=True)
-
-    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
-
-    if uploaded_df.isnull().values.any():
-        st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
-        st.stop()
-
-    uploaded_df['exporter'] = exporter_name
-    uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
-
-    for lot in uploaded_df['export_lot'].unique():
-        delete_existing_delivery(lot, exporter_name)
-    save_delivery_to_supabase(uploaded_df)
-
-    merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
-
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-
-    # DEBUG: Check for variations of "soc-02598"
-    target_id = "soc-02598"
-    match_in_db = [fid for fid in farmers_df['farmer_id'].unique() if target_id in fid or fid in target_id]
-    match_in_upload = [fid for fid in uploaded_df['farmer_id'].unique() if target_id in fid or fid in target_id]
-    st.info(f"Farmer ID check – looking for variations of '{target_id}'")
-    st.write("🧩 Matches in DB:", match_in_db)
-    st.write("🧾 Matches in Upload:", match_in_upload)
-
-    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-    exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
-
-    if unknown_farmers.size > 0:
-        st.error("The following farmers are NOT in the database:")
-        st.write(list(unknown_farmers))
-
-    if not exceeded_df.empty:
-        st.warning("These farmers have exceeded their quota:")
-        st.dataframe(exceeded_df[['farmer_id', 'net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
-
-    st.write("### Quota Overview")
-    if 'area_ha' in merged_df.columns:
-        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
-    else:
-        st.dataframe(merged_df[['farmer_id', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
-
-    all_ids_valid = len(unknown_farmers) == 0
-    any_quota_exceeded = not exceeded_df.empty
-
-    if all_ids_valid and not any_quota_exceeded:
-        lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
-        lot_status_ok = lot_totals.between(21000, 29000).all()
-
-        if lot_status_ok:
-            st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
