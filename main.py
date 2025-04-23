@@ -5,6 +5,7 @@ from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
+import os
 from supabase import create_client, Client
 import re
 
@@ -28,8 +29,8 @@ def clean_farmer_id(val):
         return ""
     if not isinstance(val, str):
         val = str(val)
-    val = val.encode('ascii', 'ignore').decode()
-    val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)
+    val = val.encode("ascii", "ignore").decode("utf-8", "ignore")
+    val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
     return val.strip().lower()
 
 # ---------------------- CACHE DATA ----------------------
@@ -51,7 +52,6 @@ def load_farmer_data():
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
-
     return farmers_df
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
@@ -72,7 +72,6 @@ def save_delivery_to_supabase(df):
 # ---------------------- SAVE APPROVAL ----------------------
 def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="CloudIA"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
     data = {
         "created_at": timestamp,
         "lot_number": lot_number,
@@ -80,7 +79,6 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
         "approved_by": approved_by,
         "file_name": file_name
     }
-
     supabase.table("approvals").insert(data).execute()
 
 # ---------------------- MERGE FARMERS + DELIVERY ----------------------
@@ -96,7 +94,6 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
 
     merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
     merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
-
     return merged_df
 
 # ---------------------- STREAMLIT UI ----------------------
@@ -146,14 +143,20 @@ if delivery_file and exporter_name:
 
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
-
     save_delivery_to_supabase(uploaded_df)
 
     merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
 
-    # Final cleaning before comparison
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
+
+    # DEBUG: Check for variations of "soc-02598"
+    target_id = "soc-02598"
+    match_in_db = [fid for fid in farmers_df['farmer_id'].unique() if target_id in fid or fid in target_id]
+    match_in_upload = [fid for fid in uploaded_df['farmer_id'].unique() if target_id in fid or fid in target_id]
+    st.info(f"Farmer ID check – looking for variations of '{target_id}'")
+    st.write("🧩 Matches in DB:", match_in_db)
+    st.write("🧾 Matches in Upload:", match_in_upload)
 
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
     exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
