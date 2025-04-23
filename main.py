@@ -80,6 +80,32 @@ def clean_farmer_id(val):
     return str(val).strip().lower()
 
 
+# ---------------------- MERGE FARMERS + DELIVERY ----------------------
+def merge_farmers_with_delivery(farmers_df, delivery_df):
+    # Ujednolicenie farmer_id
+    delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
+
+    # Debug: pokaż ID które będą porównywane
+    st.write("Delivery IDs (cleaned):", delivery_df['farmer_id'].unique().tolist())
+    st.write("Farmer DB IDs:", farmers_df['farmer_id'].unique().tolist())
+
+    # Merge
+    merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
+
+    # Obliczanie maksymalnej kwoty
+    if 'area_ha' in merged_df.columns:
+        merged_df['max_quota_kg'] = merged_df['area_ha'] * QUOTA_PER_HA
+    else:
+        merged_df['max_quota_kg'] = QUOTA_PER_HA  # fallback
+
+    # Obliczanie procentowego zużycia
+    merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
+    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
+
+    return merged_df
+
+
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
 with col1:
