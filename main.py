@@ -72,6 +72,14 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
 
     supabase.table("approvals").insert(data).execute()
 
+def clean_farmer_id(val):
+    if isinstance(val, str):
+        val = val.encode('ascii', 'ignore').decode()  # usuwa znaki specjalne
+        val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)
+        return val.strip().lower()
+    return str(val).strip().lower()
+
+
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
 with col1:
@@ -92,7 +100,8 @@ farmers_df = load_farmer_data()
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower().str.replace("\u00a0", "")
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
+
 
     st.write("Sample farmer IDs from upload:", uploaded_df['farmer_id'].head(10).tolist())
 
