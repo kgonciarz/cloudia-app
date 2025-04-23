@@ -87,35 +87,21 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
     pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
-
-    # CloudIA logo left corner
-    if logo_path and os.path.exists(logo_path):
-        pdf.image(logo_path, x=10, y=10, w=40)
-
-    # CocoaSource logo centered and large
-    if logo_cocoa and os.path.exists(logo_cocoa):
-        pdf.image(logo_cocoa, x=(210 - 100) / 2, y=10, w=100)
-
+    pdf.image(logo_path, x=10, y=20, w=40)
+    pdf.image(logo_cocoa, x=160, y=20, w=40)
     pdf.set_y(60)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
     pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
-    pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")  # Converted to Metric Tons
-
+    pdf.multi_cell(0, 10, f"Total Net Weight: {total_kg} kg")
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Lot Summary", ln=True)
-
     pdf.set_font("Arial", "", 12)
     for lot, kg in lot_kg_summary.items():
-        pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
-
-    pdf.ln(10)
-    pdf.set_font("Arial", "I", 12)
-    pdf.cell(0, 10, "Approved by CloudIA", ln=True)
-
-    filename = f"/mnt/data/approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf.cell(0, 10, f"{lot}: {kg} kg", ln=True)
+    filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(filename)
     return filename
 
