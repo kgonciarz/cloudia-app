@@ -35,7 +35,6 @@ def load_farmer_data():
 
     return farmers_df
 
-
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
     supabase.table("traceability").delete().match({
@@ -47,7 +46,7 @@ def delete_existing_delivery(lot_number, exporter_name):
 def save_delivery_to_supabase(df):
     df_for_db = df.copy()
     df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
-    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.lower().str.strip()
+    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.strip().str.lower()
     data = df_for_db.to_dict(orient="records")
     supabase.table("traceability").insert(data).execute()
 
@@ -152,8 +151,8 @@ farmers_df = load_farmer_data()
 
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
@@ -169,14 +168,12 @@ if delivery_file and exporter_name:
         'date of purchase from cooperative': 'purchase_date'
     }, inplace=True)
 
-    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(
-        datetime.today().strftime('%Y-%m-%d'))
+    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
 
     if uploaded_df.isnull().values.any():
         st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
         st.stop()
 
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
@@ -198,7 +195,10 @@ if delivery_file and exporter_name:
         st.dataframe(exceeded_df[['farmer_id', 'net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
 
     st.write("### Quota Overview")
-    st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
+    if 'area_ha' in merged_df.columns:
+        st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
+    else:
+        st.dataframe(merged_df[['farmer_id', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
 
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = not exceeded_df.empty
