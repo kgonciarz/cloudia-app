@@ -32,7 +32,7 @@ def clean_farmer_id(val):
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    response = supabase.table("farmers").select("*").execute()
+    response = supabase.table("farmers").select("*").range(0, 20000).execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
@@ -40,6 +40,8 @@ def load_farmer_data():
 
     st.write("Loaded farmers_df columns:", farmers_df.columns.tolist())
     st.write("Sample farmer IDs from DB:", farmers_df['farmer_id'].head(10).tolist())
+    st.write(f"Loaded {len(response.data)} rows from Supabase farmers table.")
+
 
     return farmers_df
 
