@@ -82,28 +82,44 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
     return merged_df
 
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, logo_path=None, logo_cocoa=None):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
-    pdf.image(logo_path, x=10, y=20, w=40)
-    pdf.image(logo_cocoa, x=160, y=20, w=40)
-    pdf.set_y(60)
-    pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
-    pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
-    pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
-    pdf.multi_cell(0, 10, f"Total Net Weight: {total_kg} kg")
-    pdf.ln(5)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Lot Summary", ln=True)
-    pdf.set_font("Arial", "", 12)
-    for lot, kg in lot_kg_summary.items():
-        pdf.cell(0, 10, f"{lot}: {kg} kg", ln=True)
-    filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    pdf.output(filename)
-    return filename
+    pdf.set_font("Arial", size=12)
+
+    # If CloudIA logo is provided, add it to the top left
+    if logo_path and os.path.exists(logo_path):
+        pdf.image(logo_path, x=10, y=8, w=33)  # Adjust size if needed
+
+    pdf.ln(20)
+
+    # If CocoaSource logo is provided, add it to the center
+    if logo_cocoa and os.path.exists(logo_cocoa):
+        pdf.image(logo_cocoa, x=(pdf.w - 110) / 2, y=3, w=110)  # Center and resize
+
+    pdf.ln(30)
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(200, 10, txt="Delivery Approval Confirmation", ln=True, align='C')
+
+    pdf.set_font("Arial", size=12)
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    pdf.ln(10)
+    pdf.cell(200, 10, txt=f"Date: {now}", ln=True)
+
+    lot_numbers_str = ", ".join([str(x) for x in lot_numbers])
+    pdf.cell(200, 10, txt=f"Lot Numbers: {lot_numbers_str}", ln=True)
+    pdf.cell(200, 10, txt=f"Exporter: {exporter_name}", ln=True)
+    pdf.cell(200, 10, txt=f"Approved Farmers: {farmer_count}", ln=True)
+    pdf.cell(200, 10, txt=f"Total Delivered (kg): {total_kg}", ln=True)
+    pdf.cell(200, 10, txt="Approved by CloudIA", ln=True)
+    pdf.ln(10)
+    pdf.cell(200, 10, txt="All farmer IDs are valid and within quota limits.", ln=True)
+
+    file_name = f"approval_{'_'.join(map(str, lot_numbers))}_{exporter_name}.pdf"
+    pdf.output(file_name)
+    save_approval_to_db(lot_numbers, exporter_name, file_name)
+    return file_name
+
 
 col1, col2 = st.columns(2)
 with col1:
