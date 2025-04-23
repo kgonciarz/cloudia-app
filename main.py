@@ -24,7 +24,7 @@ supabase = get_supabase()
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    response = supabase.table("quota_view").select("*").execute()
+    response = supabase.table("farmers").select("*").execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
