@@ -164,7 +164,8 @@ if delivery_file:
         st.dataframe(exceeded_df[['farmer_id', 'net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
 
     st.write("### Quota Overview")
-    st.dataframe(quota_df[['farmer_id', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
+    st.dataframe(quota_df[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status']])
+
 
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = not exceeded_df.empty
