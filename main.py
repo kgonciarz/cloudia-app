@@ -153,14 +153,21 @@ if delivery_file:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
+    @st.cache_data
+    def load_quota_view():
+        result = supabase.table("quota_view").select("*").execute()
+        return pd.DataFrame(result.data)
+
+    quota_df = load_quota_view()
+
+
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
     save_delivery_to_supabase(uploaded_df)
 
-    merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
+    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(quota_df['farmer_id'])]['farmer_id'].unique()
+    exceeded_df = quota_df[quota_df['quota_status'] == 'EXCEEDED']
 
-    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-    exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
     if unknown_farmers.size > 0:
         st.error("The following farmers are NOT in the database:")
