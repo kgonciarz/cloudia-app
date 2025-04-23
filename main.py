@@ -52,7 +52,8 @@ def load_farmer_data():
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
-    return farmers_df
+    return farmers_df  # 👈 TO musi być wewnątrz funkcji
+
 
 # ---------------------- STREAMLIT UI DEBUG ----------------------
 st.subheader("🔍 DEBUG: Sprawdź obecność soc-02598 w farmers_df")
