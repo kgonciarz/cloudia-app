@@ -84,11 +84,13 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     supabase.table("approvals").insert(data).execute()
 
 def clean_farmer_id(val):
-    if isinstance(val, str):
-        val = val.encode('ascii', 'ignore').decode()  # usuwa znaki specjalne
-        val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)
-        return val.strip().lower()
-    return str(val).strip().lower()
+    if pd.isnull(val):
+        return ""
+    if not isinstance(val, str):
+        val = str(val)
+    val = val.encode('ascii', 'ignore').decode()  # usuwa dziwne znaki unicode
+    val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)  # usuwa wszystkie nietypowe spacje
+    return val.strip().lower()
 
 
 # ---------------------- MERGE FARMERS + DELIVERY ----------------------
@@ -172,7 +174,12 @@ if "soc-02598" in uploaded_df['farmer_id'].values:
 
     merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
 
+    # DODAJ TO (upewniamy się że oba są porównywane po czyszczeniu)
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
+
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+
     exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
     if unknown_farmers.size > 0:
