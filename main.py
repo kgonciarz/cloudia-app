@@ -41,7 +41,8 @@ def load_farmer_data():
     offset = 0
 
     while True:
-        response = supabase.table("farmers").select("*").range(offset, offset + limit - 1).execute()
+        response = supabase.table("farmers").select("farmer_id").range(offset, offset + limit - 1).execute()
+
         rows = response.data
         if not rows:
             break
