@@ -59,7 +59,6 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
 
     supabase.table("approvals").insert(data).execute()
 
-
 # ---------------------- PDF GENERATOR ----------------------
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
     pdf = FPDF()
@@ -110,24 +109,23 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     trace_grouped = delivery_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
     merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left')
 
-    if 'net_weight_kg' not in merged_df.columns:
+    if 'net_weight_kg' not in merged_df:
         merged_df['net_weight_kg'] = 0
     else:
         merged_df['net_weight_kg'] = merged_df['net_weight_kg'].fillna(0)
 
-    if 'max_quota_kg' in merged_df.columns:
-        merged_df['quota_used_pct'] = (merged_df['net_weight_kg'] / merged_df['max_quota_kg']) * 100
-        merged_df['quota_used_pct'] = merged_df['quota_used_pct'].round(2)
-        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-            lambda x: "OK" if x <= 80 else ("WARNING" if x <= 100 else "EXCEEDED")
-        )
-    else:
-        merged_df['quota_used_pct'] = 0
-        merged_df['quota_status'] = 'UNKNOWN'
+    if 'max_quota_kg' not in merged_df:
+        merged_df['max_quota_kg'] = 0
+
+    merged_df['quota_used_pct'] = merged_df.apply(
+        lambda row: round((row['net_weight_kg'] / row['max_quota_kg']) * 100, 2) if row['max_quota_kg'] > 0 else 0,
+        axis=1
+    )
+    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
+        lambda x: "OK" if x <= 80 else ("WARNING" if x <= 100 else "EXCEEDED")
+    )
 
     return merged_df
-
-
 
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
@@ -141,9 +139,10 @@ with col2:
 st.markdown("### Approved by **CloudIA**", unsafe_allow_html=True)
 st.title("CloudIA - Farmer Quota Verification System")
 
-farmers_df = load_farmer_data()
 delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx"])
 exporter_name = st.sidebar.text_input("Exporter Name")
+
+farmers_df = load_farmer_data()
 
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
@@ -174,16 +173,11 @@ if delivery_file and exporter_name:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
-
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
     save_delivery_to_supabase(uploaded_df)
 
-    trace_grouped = uploaded_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
-    merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left').fillna({'net_weight_kg': 0})
-    merged_df['quota_used_pct'] = (merged_df['net_weight_kg'] / merged_df['max_quota_kg']) * 100
-    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 80 else ("Warning" if x <= 100 else "EXCEEDED"))
-
+    merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
 
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
     exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
