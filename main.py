@@ -152,6 +152,7 @@ farmers_df = load_farmer_data()
 
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
