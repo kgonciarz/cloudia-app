@@ -11,7 +11,6 @@ from supabase import create_client, Client
 QUOTA_PER_HA = 800
 LOGO_PATH = "cloudia_logo.png"
 LOGO_COCOA = "cocoasourcelogo.jpg"
-FARMER_DB_PATH = "farmer_database.xlsx"
 
 # ---------------------- SUPABASE INIT ----------------------
 @st.cache_resource
@@ -25,10 +24,10 @@ supabase = get_supabase()
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    farmers_df = pd.read_excel(FARMER_DB_PATH)
+    response = supabase.table("quota_view").select("*").execute()
+    farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-    farmers_df['max_quota_kg'] = (farmers_df['area_ha'] * QUOTA_PER_HA).round(2)
     return farmers_df
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
