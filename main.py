@@ -92,7 +92,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.set_y(60)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
-    pdf.multi_cell(0, 10, f"Lots: {', '.join(lot_numbers)}")
+    pdf.multi_cell(0, 10, f"Lots: {', '.join(str(lot) for lot in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {total_kg} kg")
     pdf.ln(5)
