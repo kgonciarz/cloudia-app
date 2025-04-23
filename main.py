@@ -6,6 +6,7 @@ from io import BytesIO
 from PIL import Image
 import os
 from supabase import create_client, Client
+import re
 
 # ---------------------- CONFIG ----------------------
 QUOTA_PER_HA = 800
@@ -21,13 +22,20 @@ def get_supabase() -> Client:
 
 supabase = get_supabase()
 
+# ---------------------- UTIL ----------------------
+def clean_farmer_id(val):
+    if isinstance(val, str):
+        val = re.sub(r"[\s\u00a0]+", "", val)  # remove all types of whitespace including \u00a0
+        return val.strip().lower()
+    return val
+
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
     response = supabase.table("farmers").select("*").execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower().str.replace("\u00a0", "")
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
     st.write("Loaded farmers_df columns:", farmers_df.columns.tolist())
@@ -46,7 +54,7 @@ def delete_existing_delivery(lot_number, exporter_name):
 def save_delivery_to_supabase(df):
     df_for_db = df.copy()
     df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
-    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.lower().str.strip()
+    df_for_db['farmer_id'] = df_for_db['farmer_id'].apply(clean_farmer_id)
     data = df_for_db.to_dict(orient="records")
     supabase.table("traceability").insert(data).execute()
 
@@ -63,74 +71,6 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     }
 
     supabase.table("approvals").insert(data).execute()
-
-# ---------------------- PDF GENERATOR ----------------------
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path=None, logo_cocoa=None):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-
-    if logo_path and os.path.exists(logo_path):
-        pdf.image(logo_path, x=10, y=8, w=33)
-    pdf.ln(20)
-    if logo_cocoa and os.path.exists(logo_cocoa):
-        pdf.image(logo_cocoa, x=(pdf.w - 110) / 2, y=3, w=110)
-    pdf.ln(30)
-
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt="Delivery Approval Confirmation", ln=True, align='C')
-    pdf.set_font("Arial", size=12)
-
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    pdf.ln(10)
-    pdf.cell(200, 10, txt=f"Date: {now}", ln=True)
-
-    lot_numbers_str = ", ".join([str(x) for x in lot_numbers])
-    pdf.cell(200, 10, txt=f"Lot Numbers: {lot_numbers_str}", ln=True)
-    pdf.cell(200, 10, txt=f"Exporter: {exporter_name}", ln=True)
-    pdf.cell(200, 10, txt=f"Approved Farmers: {farmer_count}", ln=True)
-    pdf.cell(200, 10, txt=f"Total Delivered (kg): {total_kg}", ln=True)
-    pdf.cell(200, 10, txt="Approved by CloudIA", ln=True)
-    pdf.ln(10)
-
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Delivered Weight per Lot:", ln=True)
-    pdf.set_font("Arial", size=12)
-    for lot, kg in lot_kg_summary.items():
-        mt = round(kg / 1000, 2)
-        pdf.cell(200, 10, txt=f"Lot {lot}: {mt} MT", ln=True)
-
-    pdf.ln(10)
-    pdf.cell(200, 10, txt="All farmer IDs are valid and within quota limits.", ln=True)
-
-    file_name = f"approval_{'_'.join(map(str, lot_numbers))}_{exporter_name}.pdf"
-    pdf.output(file_name)
-
-    save_approval_to_db(lot_numbers_str, exporter_name, file_name)
-    return file_name
-
-# ---------------------- HELPER ----------------------
-def merge_farmers_with_delivery(farmers_df, delivery_df):
-    trace_grouped = delivery_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
-    merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left')
-
-    if 'net_weight_kg' not in merged_df:
-        merged_df['net_weight_kg'] = 0
-    else:
-        merged_df['net_weight_kg'] = merged_df['net_weight_kg'].fillna(0)
-
-    if 'max_quota_kg' not in merged_df:
-        merged_df['max_quota_kg'] = 0
-
-    merged_df['quota_used_pct'] = merged_df.apply(
-        lambda row: round((row['net_weight_kg'] / row['max_quota_kg']) * 100, 2) if row['max_quota_kg'] > 0 else 0,
-        axis=1
-    )
-    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
-        lambda x: "OK" if x <= 80 else ("WARNING" if x <= 100 else "EXCEEDED")
-    )
-
-    return merged_df
 
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
