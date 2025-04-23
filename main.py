@@ -74,6 +74,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    pdf.multi_cell(0, 10, f"Generated on: {now}")
     pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
     pdf.image(logo_path, x=10, y=20, w=40)
     pdf.image(logo_cocoa, x=60, y=20, w=60)
