@@ -49,8 +49,6 @@ def load_farmer_data():
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
-    st.write(f"Loaded {len(farmers_df)} rows from Supabase farmers table.")
-    st.write("Sample farmer IDs from DB:", farmers_df['farmer_id'].head(10).tolist())
 
     return farmers_df
 
@@ -99,9 +97,6 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
 
-    # Debug: pokaż ID które będą porównywane
-    st.write("Delivery IDs (cleaned):", delivery_df['farmer_id'].unique().tolist())
-    st.write("Farmer DB IDs:", farmers_df['farmer_id'].unique().tolist())
 
     # Merge
     merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
