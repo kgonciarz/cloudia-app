@@ -34,27 +34,33 @@ def clean_farmer_id(val):
     val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
     return val.strip().lower()
 
-# ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
     all_rows = []
     limit = 1000
     offset = 0
-
     while True:
         response = supabase.table("farmers").select("farmer_id").range(offset, offset + limit - 1).execute()
-
         rows = response.data
         if not rows:
             break
         all_rows.extend(rows)
         offset += limit
-
     farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-    farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
-    return farmers_df
+    return farmers_df.drop_duplicates(subset='farmer_id', keep='last')
+
+def merge_farmers_with_delivery(farmers_df, delivery_df):
+    delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
+    merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
+    if 'area_ha' in merged_df.columns:
+        merged_df['max_quota_kg'] = merged_df['area_ha'] * QUOTA_PER_HA
+    else:
+        merged_df['max_quota_kg'] = QUOTA_PER_HA
+    merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
+    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
@@ -83,20 +89,6 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
     }
     supabase.table("approvals").insert(data).execute()
 
-# ---------------------- MERGE FARMERS + DELIVERY ----------------------
-def merge_farmers_with_delivery(farmers_df, delivery_df):
-    delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-    merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
-
-    if 'area_ha' in merged_df.columns:
-        merged_df['max_quota_kg'] = merged_df['area_ha'] * QUOTA_PER_HA
-    else:
-        merged_df['max_quota_kg'] = QUOTA_PER_HA
-
-    merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
-    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
-    return merged_df
 
 
 # ---------------------- STREAMLIT UI ----------------------
