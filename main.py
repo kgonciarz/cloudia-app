@@ -5,7 +5,6 @@ from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
-import os
 from supabase import create_client, Client
 import re
 
@@ -35,7 +34,6 @@ def load_farmer_data():
     all_rows = []
     limit = 1000
     offset = 0
-
     while True:
         response = supabase.table("farmers").select("farmer_id, cooperative, area_ha").range(offset, offset + limit - 1).execute()
         rows = response.data
@@ -43,12 +41,10 @@ def load_farmer_data():
             break
         all_rows.extend(rows)
         offset += limit
-
     farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-    farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
-    return farmers_df
+    return farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
 def delete_existing_delivery(lot_number, exporter_name):
     supabase.table("traceability").delete().match({
@@ -85,6 +81,29 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
     merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
     return merged_df
+
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
+    pdf.image(logo_path, x=10, y=20, w=40)
+    pdf.image(logo_cocoa, x=160, y=20, w=40)
+    pdf.set_y(60)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
+    pdf.multi_cell(0, 10, f"Lots: {', '.join(lot_numbers)}")
+    pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
+    pdf.multi_cell(0, 10, f"Total Net Weight: {total_kg} kg")
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Lot Summary", ln=True)
+    pdf.set_font("Arial", "", 12)
+    for lot, kg in lot_kg_summary.items():
+        pdf.cell(0, 10, f"{lot}: {kg} kg", ln=True)
+    filename = f"approval_{exporter_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    pdf.output(filename)
+    return filename
 
 # ---------------------- UI ----------------------
 col1, col2 = st.columns(2)
@@ -155,3 +174,26 @@ if delivery_file:
 
     st.write("### Quota Overview")
     st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
+
+    all_ids_valid = len(unknown_farmers) == 0
+    any_quota_exceeded = not exceeded_df.empty
+
+    if all_ids_valid and not any_quota_exceeded:
+        lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
+        lot_status_ok = lot_totals.between(21000, 29000).all()
+
+        if lot_status_ok:
+            st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
+            if st.button("Generate Approval PDF"):
+                total_kg = int(lot_totals.sum())
+                pdf_file = generate_pdf_confirmation(
+                    lot_numbers=lot_totals.index.tolist(),
+                    exporter_name=exporter_name,
+                    farmer_count=uploaded_df['farmer_id'].nunique(),
+                    total_kg=total_kg,
+                    lot_kg_summary=lot_totals.to_dict(),
+                    logo_path=LOGO_PATH,
+                    logo_cocoa=LOGO_COCOA
+                )
+                with open(pdf_file, "rb") as f:
+                    st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
