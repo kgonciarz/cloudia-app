@@ -24,12 +24,12 @@ supabase = get_supabase()
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    response = supabase.table("quota_view").select("*").execute()
+    response = supabase.table("farmers").select("farmer_id, area_ha, max_quota_kg, cooperative, city, region").execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
-    farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
     return farmers_df
+
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
