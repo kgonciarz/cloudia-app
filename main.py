@@ -42,8 +42,6 @@ def load_farmer_data():
 
     while True:
         response = supabase.table("farmers").select("farmer_id, cooperative, area_ha").range(offset, offset + limit - 1).execute()
-
-
         rows = response.data
         if not rows:
             break
@@ -54,6 +52,24 @@ def load_farmer_data():
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
+    return farmers_df
+
+# ---------------------- STREAMLIT UI DEBUG ----------------------
+st.subheader("🔍 DEBUG: Sprawdź obecność soc-02598 w farmers_df")
+
+raw_farmer_ids = supabase.table("farmers").select("farmer_id").execute().data
+raw_ids = [r['farmer_id'] for r in raw_farmer_ids if r['farmer_id'] is not None]
+matches = [fid for fid in raw_ids if "02598" in fid]
+st.write("Z bazy (surowe):", matches)
+
+cleaned_matches = [clean_farmer_id(fid) for fid in raw_ids if "02598" in fid]
+st.write("Po clean_farmer_id():", cleaned_matches)
+
+farmers_df = load_farmer_data()
+if "soc-02598" in farmers_df['farmer_id'].values:
+    st.success("✅ soc-02598 found in farmers_df")
+else:
+    st.error("❌ soc-02598 NOT found in farmers_df")
     return farmers_df
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
