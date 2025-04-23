@@ -1,10 +1,10 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
-import os
 from supabase import create_client, Client
 import re
 
@@ -24,10 +24,13 @@ supabase = get_supabase()
 
 # ---------------------- UTIL ----------------------
 def clean_farmer_id(val):
-    if isinstance(val, str):
-        val = re.sub(r"[\s\u00a0]+", "", val)  # remove all types of whitespace including \u00a0
-        return val.strip().lower()
-    return val
+    if pd.isnull(val):
+        return ""
+    if not isinstance(val, str):
+        val = str(val)
+    val = val.encode('ascii', 'ignore').decode()
+    val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)
+    return val.strip().lower()
 
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
@@ -49,10 +52,7 @@ def load_farmer_data():
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
-
     return farmers_df
-
-
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
@@ -83,38 +83,21 @@ def save_approval_to_db(lot_number, exporter_name, file_name, approved_by="Cloud
 
     supabase.table("approvals").insert(data).execute()
 
-def clean_farmer_id(val):
-    if pd.isnull(val):
-        return ""
-    if not isinstance(val, str):
-        val = str(val)
-    val = val.encode('ascii', 'ignore').decode()  # usuwa dziwne znaki unicode
-    val = re.sub(r"[\s\u00a0\u200b\u202f\u2060]+", "", val)  # usuwa wszystkie nietypowe spacje
-    return val.strip().lower()
-
-
 # ---------------------- MERGE FARMERS + DELIVERY ----------------------
 def merge_farmers_with_delivery(farmers_df, delivery_df):
-    # Ujednolicenie farmer_id
     delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-
-
-    # Merge
     merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
 
-    # Obliczanie maksymalnej kwoty
     if 'area_ha' in merged_df.columns:
         merged_df['max_quota_kg'] = merged_df['area_ha'] * QUOTA_PER_HA
     else:
-        merged_df['max_quota_kg'] = QUOTA_PER_HA  # fallback
+        merged_df['max_quota_kg'] = QUOTA_PER_HA
 
-    # Obliczanie procentowego zużycia
     merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
     merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
 
     return merged_df
-
 
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
@@ -137,7 +120,6 @@ if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
-
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
@@ -162,24 +144,18 @@ if delivery_file and exporter_name:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
-if "soc-02598" in farmers_df['farmer_id'].values:
-    st.success("Farmer soc-02598 IS in the DB!")
-
-if "soc-02598" in uploaded_df['farmer_id'].values:
-    st.success("Farmer soc-02598 IS in the Upload!")
-
     for lot in uploaded_df['export_lot'].unique():
         delete_existing_delivery(lot, exporter_name)
+
     save_delivery_to_supabase(uploaded_df)
 
     merged_df = merge_farmers_with_delivery(farmers_df, uploaded_df)
 
-    # DODAJ TO (upewniamy się że oba są porównywane po czyszczeniu)
+    # Final cleaning before comparison
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
 
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-
     exceeded_df = merged_df[merged_df['quota_used_pct'] > 100]
 
     if unknown_farmers.size > 0:
@@ -205,26 +181,3 @@ if "soc-02598" in uploaded_df['farmer_id'].values:
 
         if lot_status_ok:
             st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-            if st.button("Generate Approval PDF"):
-                total_kg = int(lot_totals.sum())
-                pdf_file = generate_pdf_confirmation(
-                    lot_numbers=lot_totals.index.tolist(),
-                    exporter_name=exporter_name,
-                    farmer_count=uploaded_df['farmer_id'].nunique(),
-                    total_kg=total_kg,
-                    lot_kg_summary=lot_totals.to_dict(),
-                    logo_path=LOGO_PATH,
-                    logo_cocoa=LOGO_COCOA
-                )
-                with open(pdf_file, "rb") as f:
-                    st.download_button(
-                        label="Download Approval PDF",
-                        data=f,
-                        file_name=pdf_file,
-                        mime="application/pdf"
-                    )
-        else:
-            st.warning("File not approved – Delivered kg per lot must be between 21MT and 29MT.")
-            st.dataframe(lot_totals)
-    else:
-        st.warning("File not approved – check for unknown farmers or quota violations.")
