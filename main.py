@@ -73,25 +73,44 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
+    pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
+
+    # Logos
+    if logo_path:
+        pdf.image(logo_path, x=10, y=20, w=40)
+    if logo_cocoa:
+        pdf.image(logo_cocoa, x=(210 - 110) / 2, y=20, w=110)
+
+    # Metadata section
+    pdf.set_y(70)
+    pdf.set_font("Arial", "", 12)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     pdf.multi_cell(0, 10, f"Generated on: {now}")
-    pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
-    pdf.image(logo_path, x=10, y=20, w=40)
-    pdf.image(logo_cocoa, x=60, y=20, w=60)
-    pdf.set_y(60)
-    pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
     pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
+
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Lot Summary", ln=True)
     pdf.set_font("Arial", "", 12)
     for lot, kg in lot_kg_summary.items():
         pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
+
+    pdf.ln(5)
+    pdf.cell(0, 10, "Approved by CloudIA", ln=True)
+
     filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(filename)
+
+    # Save to DB
+    save_approval_to_db(
+        lot_numbers=lot_numbers,
+        exporter_name=exporter_name,
+        file_name=filename
+    )
+
     return filename
 
 col1, col2 = st.columns(2)
