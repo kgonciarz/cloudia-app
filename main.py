@@ -105,7 +105,12 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     save_approval_to_db(lot_numbers_str, exporter_name, file_name)
     return file_name
 
-    return file_name
+# ---------------------- HELPER ----------------------
+def merge_farmers_with_delivery(farmers_df, delivery_df):
+    trace_grouped = delivery_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
+    merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left').fillna({'net_weight_kg': 0})
+    return merged_df
+
 
 # ---------------------- STREAMLIT UI ----------------------
 col1, col2 = st.columns(2)
