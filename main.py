@@ -28,6 +28,8 @@ def load_farmer_data():
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
+
     return farmers_df
 
 
@@ -170,7 +172,7 @@ if delivery_file and exporter_name:
         st.error("Error: Your file contains empty (null) cells. Please correct the file and upload again.")
         st.stop()
 
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.lower().str.strip()
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
