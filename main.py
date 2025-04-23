@@ -110,12 +110,15 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     trace_grouped = delivery_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
     merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left').fillna({'net_weight_kg': 0})
 
-    # Usuwamy wszystkie kolumny obliczeniowe jeśli są obecne z poprzednich prób
-    for col in ['quota_used_pct', 'quota_status']:
-        if col in merged_df.columns:
-            continue
-        else:
-            merged_df[col] = None
+    # Jeśli quota kolumny są dostępne, nie obliczaj ich na nowo
+    if 'quota_used_pct' not in merged_df.columns:
+        merged_df['quota_used_pct'] = (merged_df['net_weight_kg'] / merged_df['max_quota_kg']) * 100
+        merged_df['quota_used_pct'] = merged_df['quota_used_pct'].round(2)
+
+    if 'quota_status' not in merged_df.columns:
+        merged_df['quota_status'] = merged_df['quota_used_pct'].apply(
+            lambda x: "OK" if x <= 80 else ("WARNING" if x <= 100 else "EXCEEDED")
+        )
 
     return merged_df
 
