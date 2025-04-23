@@ -38,12 +38,11 @@ def load_farmer_data():
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
-    st.write("Loaded farmers_df columns:", farmers_df.columns.tolist())
+    st.write(f"Loaded {len(farmers_df)} rows from Supabase farmers table.")
     st.write("Sample farmer IDs from DB:", farmers_df['farmer_id'].head(10).tolist())
-    st.write(f"Loaded {len(response.data)} rows from Supabase farmers table.")
-
 
     return farmers_df
+
 
 # ---------------------- DELETE EXISTING DELIVERY ----------------------
 def delete_existing_delivery(lot_number, exporter_name):
