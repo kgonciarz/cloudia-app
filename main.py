@@ -173,6 +173,10 @@ if delivery_file:
     if all_ids_valid and not any_quota_exceeded:
         lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
         lot_status_ok = lot_totals.between(21000, 29000).all()
+    
+        st.write("all_ids_valid:", all_ids_valid)
+        st.write("any_quota_exceeded:", any_quota_exceeded)
+        st.write("lot_status_ok:", lot_status_ok)
 
         if lot_status_ok:
             st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
