@@ -24,11 +24,14 @@ supabase = get_supabase()
 # ---------------------- CACHE DATA ----------------------
 @st.cache_data
 def load_farmer_data():
-    response = supabase.table("farmers").select("farmer_id, area_ha, max_quota_kg, cooperative, city, region").execute()
+    response = supabase.table("quota_view").select("*").execute()
     farmers_df = pd.DataFrame(response.data)
     farmers_df.columns = farmers_df.columns.str.lower()
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.lower().str.strip()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
+    farmers_df = farmers_df.drop_duplicates(subset='farmer_id', keep='last')
+
+    # DEBUG: show available columns
+    st.write("Loaded farmers_df columns:", farmers_df.columns.tolist())
 
     return farmers_df
 
