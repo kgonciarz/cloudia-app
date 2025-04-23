@@ -113,6 +113,23 @@ exporter_name = st.sidebar.text_input("Exporter Name")
 
 farmers_df = load_farmer_data()
 
+st.subheader("🔍 DEBUG: Sprawdź obecność soc-02598 w farmers_df")
+
+raw_farmer_ids = supabase.table("farmers").select("farmer_id").execute().data
+raw_ids = [r['farmer_id'] for r in raw_farmer_ids if r['farmer_id'] is not None]
+
+matches = [fid for fid in raw_ids if "02598" in fid]
+st.write("Z bazy (surowe):", matches)
+
+cleaned_matches = [clean_farmer_id(fid) for fid in raw_ids if "02598" in fid]
+st.write("Po clean_farmer_id():", cleaned_matches)
+
+if "soc-02598" in farmers_df['farmer_id'].values:
+    st.success("✅ soc-02598 found in farmers_df")
+else:
+    st.error("❌ soc-02598 NOT found in farmers_df")
+
+
 if delivery_file and exporter_name:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
