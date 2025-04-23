@@ -137,8 +137,6 @@ if delivery_file and exporter_name:
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
 
 
-    st.write("Sample farmer IDs from upload:", uploaded_df['farmer_id'].head(10).tolist())
-
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
     missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
