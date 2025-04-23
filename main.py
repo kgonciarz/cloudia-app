@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -70,18 +69,6 @@ def save_approval_to_db(lot_numbers, exporter_name, file_name, approved_by="Clou
     }
     supabase.table("approvals").insert(data).execute()
 
-def merge_farmers_with_delivery(farmers_df, delivery_df):
-    delivery_df['farmer_id'] = delivery_df['farmer_id'].apply(clean_farmer_id)
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
-    merged_df = pd.merge(delivery_df, farmers_df, on='farmer_id', how='left')
-    if 'area_ha' in merged_df.columns:
-        merged_df['max_quota_kg'] = merged_df['area_ha'] * QUOTA_PER_HA
-    else:
-        merged_df['max_quota_kg'] = QUOTA_PER_HA
-    merged_df['quota_used_pct'] = round(100 * merged_df['net_weight_kg'] / merged_df['max_quota_kg'], 1)
-    merged_df['quota_status'] = merged_df['quota_used_pct'].apply(lambda x: "OK" if x <= 100 else "Exceeded")
-    return merged_df
-
 def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa):
     pdf = FPDF()
     pdf.add_page()
@@ -94,7 +81,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
     pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
-    pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")  # Converted to Metric Tons
+    pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Lot Summary", ln=True)
@@ -153,6 +140,16 @@ if delivery_file:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
+    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+    if unknown_farmers.size > 0:
+        st.error("The following farmers are NOT in the database:")
+        st.write(list(unknown_farmers))
+        st.stop()
+
+    for lot in uploaded_df['export_lot'].unique():
+        delete_existing_delivery(lot, exporter_name)
+    save_delivery_to_supabase(uploaded_df)
+
     @st.cache_data
     def load_quota_view():
         result = supabase.table("quota_view").select("*").execute()
@@ -160,25 +157,14 @@ if delivery_file:
 
     quota_df = load_quota_view()
 
-
-    for lot in uploaded_df['export_lot'].unique():
-        delete_existing_delivery(lot, exporter_name)
-    save_delivery_to_supabase(uploaded_df)
-
-    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(quota_df['farmer_id'])]['farmer_id'].unique()
     exceeded_df = quota_df[quota_df['quota_status'] == 'EXCEEDED']
-
-
-    if unknown_farmers.size > 0:
-        st.error("The following farmers are NOT in the database:")
-        st.write(list(unknown_farmers))
 
     if not exceeded_df.empty:
         st.warning("These farmers have exceeded their quota:")
         st.dataframe(exceeded_df[['farmer_id', 'net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
 
     st.write("### Quota Overview")
-    st.dataframe(merged_df[['farmer_id', 'area_ha', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
+    st.dataframe(quota_df[['farmer_id', 'max_quota_kg', 'net_weight_kg', 'quota_used_pct', 'quota_status']])
 
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = not exceeded_df.empty
