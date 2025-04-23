@@ -110,11 +110,12 @@ def merge_farmers_with_delivery(farmers_df, delivery_df):
     trace_grouped = delivery_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
     merged_df = pd.merge(farmers_df, trace_grouped, on='farmer_id', how='left').fillna({'net_weight_kg': 0})
 
-    # Sprawdzamy obecność potrzebnych kolumn zanim je użyjemy
-    for col in ['net_weight_kg', 'max_quota_kg', 'quota_used_pct', 'quota_status']:
-        if col not in merged_df.columns:
-            st.error(f"Brakuje kolumny '{col}' w danych z Supabase.")
-            return pd.DataFrame()
+    # Usuwamy wszystkie kolumny obliczeniowe jeśli są obecne z poprzednich prób
+    for col in ['quota_used_pct', 'quota_status']:
+        if col in merged_df.columns:
+            continue
+        else:
+            merged_df[col] = None
 
     return merged_df
 
