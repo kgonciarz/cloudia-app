@@ -65,6 +65,8 @@ def load_farmer_data():
 
     return farmers_df
 
+response = supabase.table("farmers").select("*").eq("farmer_id", "soc-02598").execute()
+st.write("🔍 Wynik zapytania dla farmer_id=soc-02598:", response.data)
 
 
 def delete_existing_delivery(lot_number, exporter_name):
