@@ -33,20 +33,33 @@ def load_farmer_data():
     all_rows = []
     limit = 1000
     offset = 0
+
     while True:
-        response = supabase.table("farmers").select("*").range(offset, offset + limit - 1).execute()
+        response = (
+            supabase.table("farmers")
+            .select("*")  # pobierz wszystkie kolumny!
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
         rows = response.data
         if not rows:
             break
         all_rows.extend(rows)
         offset += limit
 
+    # Do Pandas
     farmers_df = pd.DataFrame(all_rows)
+
+    # Wymuś lowercase kolumn
     farmers_df.columns = farmers_df.columns.str.lower()
+
+    # Napraw farmer_id
     if 'farmer_id' in farmers_df.columns:
         farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).apply(clean_farmer_id)
 
-    return farmers_df.drop_duplicates(subset='farmer_id', keep='last')
+    # ⚠️ NIE USUWAJ DUPLIKATÓW farmer_id
+    return farmers_df
+
 
 
 def delete_existing_delivery(lot_number, exporter_name):
