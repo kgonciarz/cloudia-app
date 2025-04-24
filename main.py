@@ -65,7 +65,8 @@ def delete_existing_delivery(lot_number, exporter_name):
 def save_delivery_to_supabase(df):
     df_for_db = df.copy()
     df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
-    df_for_db['farmer_id'] = df_for_db['farmer_id'].apply(clean_farmer_id)
+    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.strip().str.lower()
+
     data = df_for_db.to_dict(orient="records")
     supabase.table("traceability").insert(data).execute()
 
