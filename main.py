@@ -180,6 +180,13 @@ if delivery_file:
     similar_ids = farmers_df[farmers_df['farmer_id'].str.contains("02598", na=False)]
     st.write("Podobne ID z bazy danych:", similar_ids['farmer_id'].tolist())
 
+    # Zobacz wszystkie ID zawierające "02598"
+    st.write("🔍 Szukam farmer_id zawierających '02598':")
+    for fid in farmers_df['farmer_id']:
+        if "02598" in fid:
+            st.write("🧠", repr(fid))
+
+
     for db_id in farmers_df['farmer_id']:
         if db_id.strip().lower() == problem_id.strip().lower():
             st.write("✅ Pasujący farmer_id w DB (raw):", repr(db_id))
