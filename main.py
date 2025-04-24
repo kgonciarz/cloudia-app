@@ -131,6 +131,11 @@ delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx
 
 farmers_df = load_farmer_data()
 
+st.subheader("🧪 Sprawdzenie kompletności danych z bazy:")
+st.write("Unikalnych farmer_id w farmers_df:", farmers_df['farmer_id'].nunique())
+st.write("Liczba wierszy farmers_df:", len(farmers_df))
+
+
 if delivery_file:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
@@ -170,25 +175,6 @@ if delivery_file:
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id'], keep='last')
 
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
-
-    # 🔍 Debug konkretnego ID
-    problem_id = "soc-02598"
-
-    id_in_excel = problem_id in uploaded_df['farmer_id'].values
-    id_in_db = problem_id in farmers_df['farmer_id'].values
-
-    st.subheader("🔎 Diagnostyka farmer_id: soc-02598")
-    st.write("Czy ID jest w Excelu?", id_in_excel)
-    st.write("Czy ID jest w Bazie?", id_in_db)
-
-    similar_ids = farmers_df[farmers_df['farmer_id'].str.contains("02598", na=False)]
-    st.write("Podobne ID z bazy danych:", similar_ids['farmer_id'].tolist())
-
-    # Zobacz wszystkie ID zawierające "02598"
-    st.write("🔍 Szukam farmer_id zawierających '02598':")
-    for fid in farmers_df['farmer_id']:
-        if "02598" in fid:
-            st.write("🧠", repr(fid))
 
 
     for db_id in farmers_df['farmer_id']:
