@@ -136,7 +136,8 @@ st.title("CloudIA - Farmer Quota Verification System")
 
 delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx"])
 
-farmers_df = load_farmer_data()
+farmers_df = load_all_farmers()
+
 
 st.subheader("🧪 Sprawdzenie kompletności danych z bazy:")
 st.write("Unikalnych farmer_id w farmers_df:", farmers_df['farmer_id'].nunique())
