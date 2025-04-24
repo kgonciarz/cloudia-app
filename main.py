@@ -20,13 +20,13 @@ def get_supabase() -> Client:
 supabase = get_supabase()
 
 def clean_farmer_id(val):
-    if pd.isnull(val):
+    if pd.isnull(val) or val is None:
         return ""
-    if not isinstance(val, str):
-        val = str(val)
-    val = val.encode("ascii", "ignore").decode("utf-8", "ignore")
+    val = str(val)  # Konwersja zawsze
+    # Usuwamy tylko naprawdę niewidoczne śmieci
     val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
     return val.strip().lower()
+
 
 
 @st.cache_data
