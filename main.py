@@ -177,24 +177,7 @@ if delivery_file:
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
 
 
-    for db_id in farmers_df['farmer_id']:
-        problem_id = "soc-02598"
-
-# Przefiltruj farmers_df z normalizacją
-        matching = farmers_df[
-            farmers_df['farmer_id'].astype(str).str.strip().str.lower() == problem_id.strip().lower()
-        ]
-
-        st.write("🔎 Liczba dopasowanych farmer_id:", len(matching))
-        if not matching.empty:
-            st.write("✅ ZNALEZIONO:", matching)
-        else:
-            st.warning("❌ Nadal brak farmera soc-02598 po czyszczeniu.")
-
-
-
-        if isinstance(db_id, str) and db_id.strip().lower() == problem_id.strip().lower():
-            st.write("✅ Pasujący farmer_id w DB (raw):", repr(db_id))
+    #for db_id in farmers_df['farmer_id']:
 
 
     if unknown_farmers.size > 0:
