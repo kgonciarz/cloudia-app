@@ -178,7 +178,7 @@ if delivery_file:
 
 
     for db_id in farmers_df['farmer_id']:
-        if db_id.strip().lower() == problem_id.strip().lower():
+        if isinstance(db_id, str) and db_id.strip().lower() == problem_id.strip().lower():
             st.write("✅ Pasujący farmer_id w DB (raw):", repr(db_id))
 
 
