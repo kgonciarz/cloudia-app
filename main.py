@@ -28,6 +28,7 @@ def clean_farmer_id(val):
     val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
     return val.strip().lower()
 
+
 @st.cache_data
 def load_farmer_data():
     all_rows = []
