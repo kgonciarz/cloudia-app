@@ -29,44 +29,31 @@ supabase = get_supabase()
 
 
 @st.cache_data
-def load_farmer_data():
+def load_all_farmers():
     all_rows = []
-    limit = 1000
-    offset = 0
+    page_size = 1000
+    last_farmer_id = None
 
     while True:
-        response = (
-            supabase.table("farmers")
-            .select("*")  # bierz wszystko
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-        rows = response.data
+        query = supabase.table("farmers").select("*").limit(page_size).order("farmer_id")
+        if last_farmer_id:
+            query = query.gt("farmer_id", last_farmer_id)
+
+        result = query.execute()
+        rows = result.data
+
         if not rows:
             break
+
         all_rows.extend(rows)
-        offset += limit
-
-# 🔍 Szukamy ID zanim trafi do Pandas
-    raw_ids = [row.get("farmer_id") for row in all_rows]
-    normalized_ids = [str(fid).strip().lower() for fid in raw_ids if fid is not None]
-
-    st.write("📊 Liczba farmer_id przed Pandas:", len(raw_ids))
-    st.write("📊 Unikalne ID (set):", len(set(normalized_ids)))
-    st.write("🔎 Czy 'soc-02598' w raw_ids:", "soc-02598" in normalized_ids)
-
+        last_farmer_id = rows[-1]["farmer_id"]  # ostatni ID
 
     farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
-
-    # 🧹 Minimalne czyszczenie farmer_id
-    if 'farmer_id' in farmers_df.columns:
-        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
+    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
 
     return farmers_df
 
-response = supabase.table("farmers").select("*").eq("farmer_id", "soc-02598").execute()
-st.write("🔍 Wynik zapytania dla farmer_id=soc-02598:", response.data)
 
 
 def delete_existing_delivery(lot_number, exporter_name):
