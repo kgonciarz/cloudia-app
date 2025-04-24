@@ -60,9 +60,6 @@ def load_farmer_data():
     # ⚠️ NIE USUWAJ DUPLIKATÓW farmer_id
     return farmers_df
 
-st.write("📊 farmers_df unikalnych farmer_id:", farmers_df['farmer_id'].nunique())
-st.write("📊 farmers_df liczba wszystkich wierszy:", len(farmers_df))
-
 
 def delete_existing_delivery(lot_number, exporter_name):
     supabase.table("traceability").delete().match({
