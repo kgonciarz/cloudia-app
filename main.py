@@ -33,20 +33,19 @@ def load_farmer_data():
     all_rows = []
     limit = 1000
     offset = 0
-    iteration = 0
     while True:
-        response = supabase.table("farmers").select("farmer_id, cooperative, area_ha").range(offset, offset + limit - 1).execute()
+        response = supabase.table("farmers").select("*").range(offset, offset + limit - 1).execute()
         rows = response.data
-        st.write(f"📦 Iteracja {iteration}, załadowano {len(rows)} rekordów")
         if not rows:
             break
         all_rows.extend(rows)
         offset += limit
-        iteration += 1
 
     farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
-    farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).apply(clean_farmer_id)
+    if 'farmer_id' in farmers_df.columns:
+        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).apply(clean_farmer_id)
+
     return farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
 
