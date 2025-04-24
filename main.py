@@ -47,6 +47,15 @@ def load_farmer_data():
         all_rows.extend(rows)
         offset += limit
 
+# 🔍 Szukamy ID zanim trafi do Pandas
+    raw_ids = [row.get("farmer_id") for row in all_rows]
+    normalized_ids = [str(fid).strip().lower() for fid in raw_ids if fid is not None]
+
+    st.write("📊 Liczba farmer_id przed Pandas:", len(raw_ids))
+    st.write("📊 Unikalne ID (set):", len(set(normalized_ids)))
+    st.write("🔎 Czy 'soc-02598' w raw_ids:", "soc-02598" in normalized_ids)
+
+
     farmers_df = pd.DataFrame(all_rows)
     farmers_df.columns = farmers_df.columns.str.lower()
 
