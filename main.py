@@ -175,6 +175,29 @@ if delivery_file:
         delete_existing_delivery(lot, exporter_name)
     save_delivery_to_supabase(uploaded_df)
 
+    # Konkretny ID, który sprawiam problem
+problem_id = "soc-02598"
+
+# Farmer ID z Excela
+id_in_excel = problem_id in uploaded_df['farmer_id'].values
+# Farmer ID w bazie
+id_in_db = problem_id in farmers_df['farmer_id'].values
+
+st.subheader("🔎 Diagnostyka farmer_id: soc-02598")
+st.write("Czy ID jest w Excelu?", id_in_excel)
+st.write("Czy ID jest w Bazie?", id_in_db)
+
+# Pokaż dokładnie wszystkie farmer_id podobne
+similar_ids = farmers_df[farmers_df['farmer_id'].str.contains("02598", na=False)]
+st.write("Podobne ID z bazy danych:", similar_ids['farmer_id'].tolist())
+
+# Surowe porównanie bajt po bajcie
+st.write("Excel farmer_id (raw repr):", repr(problem_id))
+for db_id in farmers_df['farmer_id']:
+    if db_id.strip().lower() == problem_id.strip().lower():
+        st.write("✅ Pasujący farmer_id w DB (raw):", repr(db_id))
+
+
     @st.cache_data
     def load_quota_view():
         result = supabase.table("quota_view").select("*").execute()
