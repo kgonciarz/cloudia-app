@@ -151,7 +151,8 @@ if delivery_file:
 
     # 🔧 Dodaj bezpieczne czyszczenie farmer_id
     if 'farmer_id' in uploaded_df.columns:
-        uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).apply(clean_farmer_id)
+        uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
+
 
 
     if 'exporter' not in uploaded_df.columns:
