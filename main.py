@@ -41,7 +41,7 @@ def load_farmer_data():
         all_rows.extend(rows)
         offset += limit
     farmers_df = pd.DataFrame(all_rows)
-    farmers_df.columns = farmers_df.columns.str.lower()
+    farmers_df.columns = farmers_df.columns.str.strip().str.lower()
     farmers_df['farmer_id'] = farmers_df['farmer_id'].apply(clean_farmer_id)
     return farmers_df.drop_duplicates(subset='farmer_id', keep='last')
 
@@ -130,7 +130,11 @@ farmers_df = load_farmer_data()
 if delivery_file:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
-    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].apply(clean_farmer_id)
+
+    # 🔧 Dodaj bezpieczne czyszczenie farmer_id
+    if 'farmer_id' in uploaded_df.columns:
+        uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).apply(clean_farmer_id)
+
 
     if 'exporter' not in uploaded_df.columns:
         st.error("Missing 'exporter' column in the Excel file.")
