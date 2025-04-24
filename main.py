@@ -51,6 +51,18 @@ def load_farmer_data():
     # Do Pandas
     farmers_df = pd.DataFrame(all_rows)
 
+    raw_ids = [row.get("farmer_id") for row in all_rows]
+normalized_ids = [str(r).strip().lower() for r in raw_ids if r is not None]
+
+st.write("🧮 Surowe farmer_id z bazy:", len(raw_ids))  # Tu powinno być 17 701
+st.write("✅ Unikalnych farmer_id (po .lower().strip()):", len(set(normalized_ids)))
+
+if "soc-02598" in normalized_ids:
+    st.success("🎯 soc-02598 JEST w danych zanim dotkniesz clean_farmer_id")
+else:
+    st.error("❌ soc-02598 NIE MA w danych źródłowych nawet przed clean_farmer_id")
+
+
     # Wymuś lowercase kolumn
     farmers_df.columns = farmers_df.columns.str.lower()
 
