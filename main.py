@@ -19,14 +19,13 @@ def get_supabase() -> Client:
 
 supabase = get_supabase()
 
-def clean_farmer_id(val):
-    if pd.isnull(val) or val is None:
-        return ""
-    val = str(val)  # Konwersja zawsze
+#def clean_farmer_id(val):
+    #if pd.isnull(val) or val is None:
+      #  return ""
+   # val = str(val)  # Konwersja zawsze
     # Usuwamy tylko naprawdę niewidoczne śmieci
-    val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
-    return val.strip().lower()
-
+    #val = re.sub(r"[\s\u00a0\u200b\ufeff\u202f\u2060]+", "", val)
+    #return val.strip().lower()
 
 
 @st.cache_data
@@ -38,7 +37,7 @@ def load_farmer_data():
     while True:
         response = (
             supabase.table("farmers")
-            .select("*")  # pobierz wszystkie kolumny!
+            .select("*")  # bierz wszystko
             .range(offset, offset + limit - 1)
             .execute()
         )
@@ -48,19 +47,15 @@ def load_farmer_data():
         all_rows.extend(rows)
         offset += limit
 
-    # Do Pandas
     farmers_df = pd.DataFrame(all_rows)
-    
-
-    # Wymuś lowercase kolumn
     farmers_df.columns = farmers_df.columns.str.lower()
 
-    # Napraw farmer_id
+    # 🧹 Minimalne czyszczenie farmer_id
     if 'farmer_id' in farmers_df.columns:
-        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).apply(clean_farmer_id)
+        farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
 
-    # ⚠️ NIE USUWAJ DUPLIKATÓW farmer_id
     return farmers_df
+
 
 
 def delete_existing_delivery(lot_number, exporter_name):
