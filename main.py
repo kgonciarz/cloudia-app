@@ -94,52 +94,44 @@ def save_delivery_to_supabase(df):
 
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
 
-    # >>> Najważniejsza poprawka:
+    # Pobierz istniejące rekordy z Supabase
     existing_records = supabase.table("traceability").select("export_lot", "exporter", "farmer_id").execute().data
     existing_records_df = pd.DataFrame(existing_records)
 
     if not existing_records_df.empty:
+        # Upewnij się, że potrzebne kolumny istnieją
         for col in ["export_lot", "exporter", "farmer_id"]:
             if col not in existing_records_df.columns:
                 existing_records_df[col] = None
 
-        existing_records_df["export_lot"] = existing_records_df["export_lot"].astype(str).str.strip().str.lower()
-        existing_records_df["exporter"] = existing_records_df["exporter"].astype(str).str.strip().str.lower()
-        existing_records_df["farmer_id"] = existing_records_df["farmer_id"].astype(str).str.strip().str.lower()
+        # Czyszczenie i unifikacja formatowania
+        for col in ["export_lot", "exporter", "farmer_id"]:
+            existing_records_df[col] = existing_records_df[col].astype(str).str.strip().str.lower()
+            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
 
-        df_cleaned["export_lot"] = df_cleaned["export_lot"].astype(str).str.strip().str.lower()
-        df_cleaned["exporter"] = df_cleaned["exporter"].astype(str).str.strip().str.lower()
-        df_cleaned["farmer_id"] = df_cleaned["farmer_id"].astype(str).str.strip().str.lower()
-
-        merged = df_cleaned.merge(existing_records_df, on=["export_lot", "exporter", "farmer_id"], how="left", indicator=True)
+        # Usunięcie rekordów, które już istnieją w bazie
+        merged = df_cleaned.merge(
+            existing_records_df,
+            on=["export_lot", "exporter", "farmer_id"],
+            how="left",
+            indicator=True
+        )
         df_cleaned = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
 
     if df_cleaned.empty:
-        st.info("No new deliveries to insert. All records already exist.")
+        st.info("ℹ️ No new deliveries to insert. All records already exist.")
         return
 
+    # Zapisz do Supabase
     data = df_cleaned.to_dict(orient="records")
     
     try:
         supabase.table("traceability").insert(data).execute()
-        st.success(f"Data successfully inserted! {len(data)} new records added.")
+        st.success(f"✅ Data successfully inserted! {len(data)} new records added.")
     except Exception as e:
-        st.error(f"Error while inserting into traceability table: {e}")
+        st.error(f"❌ Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
 
-# QUOTA CHECK MESSAGE
-    if any_quota_exceeded:
-        num_exceeded = exceeded_df.shape[0]
-        st.warning(f"{num_exceeded} farmers have exceeded their quota.")
-    else:
-        st.success("All farmers are within their assigned quotas.")
-
-# LOT STATUS MESSAGE
-    if lot_status_ok.all():
-        st.success("All export lots are within the allowed weight range (21–29 MT).")
-    else:
-        num_outside = (~lot_status_ok).sum()
-        st.warning(f"{num_outside} export lots are outside the allowed weight range.")
 
 
 
