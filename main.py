@@ -63,12 +63,32 @@ def delete_existing_delivery(lot_number, exporter_name):
     }).execute()
 
 def save_delivery_to_supabase(df):
-    df_for_db = df.copy()
-    df_for_db.columns = df_for_db.columns.str.strip().str.lower().str.replace(" ", "_")
-    df_for_db['farmer_id'] = df_for_db['farmer_id'].astype(str).str.strip().str.lower()
+    # Ensure the columns match the Supabase table schema
+    required_columns = ['export_lot', 'exporter', 'farmer_id', 'farm_id', 'net_weight_kg']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        st.error(f"Missing required columns: {', '.join(missing_columns)}")
+        return
 
-    data = df_for_db.to_dict(orient="records")
-    supabase.table("traceability").insert(data).execute()
+    # Clean data if needed
+    df_cleaned = df.copy()
+    df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
+
+    # Handle potential duplicates
+    existing_records = supabase.table("traceability").select("export_lot", "farmer_id").execute().data
+    existing_records_df = pd.DataFrame(existing_records)
+    df_cleaned = df_cleaned[~df_cleaned[['export_lot', 'farmer_id']].duplicated()]
+
+    # Convert to dictionary and insert in chunks if necessary
+    data = df_cleaned.to_dict(orient="records")
+    
+    try:
+        supabase.table("traceability").insert(data).execute()
+    except Exception as e:
+        st.error(f"Error while inserting into traceability table: {e}")
+        print(f"Error details: {e}")
+
 
 def save_approval_to_db(lot_numbers, exporter_name, file_name, approved_by="CloudIA"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
