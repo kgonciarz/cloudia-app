@@ -127,6 +127,19 @@ def save_delivery_to_supabase(df):
         st.error(f"Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
 
+# QUOTA CHECK MESSAGE
+if any_quota_exceeded:
+    num_exceeded = exceeded_df.shape[0]
+    st.warning(f"{num_exceeded} farmers have exceeded their quota.")
+else:
+    st.success("All farmers are within their assigned quotas.")
+
+# LOT STATUS MESSAGE
+if lot_status_ok.all():
+    st.success("All export lots are within the allowed weight range (21–29 MT).")
+else:
+    num_outside = (~lot_status_ok).sum()
+    st.warning(f"{num_outside} export lots are outside the allowed weight range.")
 
 
 
