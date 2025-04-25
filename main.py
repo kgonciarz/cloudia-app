@@ -271,9 +271,18 @@ if delivery_file:
 
     if all_ids_valid and not any_quota_exceeded:
         lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
-    
-    # Function to check lot weight status
-    # Function to check lot weight status
+ # Ensure the 'net_weight_kg' column exists in the uploaded DataFrame
+if 'net_weight_kg' in uploaded_df.columns:
+    st.write("The 'net_weight_kg' column is found!")
+    lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
+else:
+    st.error("Missing 'net_weight_kg' column in the uploaded file!")
+    st.stop()
+
+# Check if lot_totals is correctly calculated
+st.write("Lot totals calculated:", lot_totals)
+
+# Function to check lot weight status
 def check_lot_status(weight_in_kg):
     weight_in_mt = weight_in_kg / 1000  # Convert to metric tons (MT)
     if weight_in_mt < 21:
@@ -283,12 +292,12 @@ def check_lot_status(weight_in_kg):
     else:
         return "Within range"
 
-# Ensure lot_totals is a valid pandas Series before applying the function
+# Check if lot_totals is a valid pandas Series before applying the function
 if isinstance(lot_totals, pd.Series):
     # Apply lot weight status check
     lot_status = lot_totals.apply(check_lot_status)
 else:
-    st.error("Failed to calculate 'lot_totals' correctly.")
+    st.error("Failed to calculate 'lot_totals' correctly. It is not a valid pandas Series.")
     st.stop()
 
 # Check if all lots are within range (between 21 and 29 MT)
