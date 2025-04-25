@@ -294,9 +294,12 @@ if delivery_file:
         'total_net_weight_kg': lot_totals.values,
         'lot_status': lot_status
     })
-    
-    st.write("### Lot Status Overview")
-    st.dataframe(lot_status_info)
+    lot_status_outside_range = lot_status_info[~lot_status_ok]
+    # Display lot status validation information
+    if not lot_status_outside_range.empty:
+        st.write("### Lot Status Overview - Out of Range")
+        st.dataframe(lot_status_outside_range)
+
 
     st.write("all_ids_valid:", all_ids_valid)
     st.write("any_quota_exceeded:", any_quota_exceeded)
