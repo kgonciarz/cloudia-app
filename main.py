@@ -326,5 +326,6 @@ if delivery_file:
             with open(pdf_file, "rb") as f:
                 st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
     else:
-        st.warning("Some lots do not meet the weight requirements!")
-        st.dataframe(lot_status_info[~lot_status_ok])  # Show lots that are out of the allowed weight range
+    # Only display this if some lots are not within range (to avoid duplication)
+    if lot_status_outside_range.empty:
+        st.success("All lots are within the allowed range!")
