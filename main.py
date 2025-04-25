@@ -273,59 +273,67 @@ if delivery_file:
         lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
     
     # Function to check lot weight status
-    def check_lot_status(weight_in_kg):
-        weight_in_mt = weight_in_kg / 1000  # Convert to metric tons (MT)
-        if weight_in_mt < 21:
-            return "Too low"
-        elif weight_in_mt > 29:
-            return "Too high"
-        else:
-            return "Within range"
-    
-    # Apply lot weight status check
-    lot_status = lot_totals.apply(check_lot_status)
-    
-    # Check if all lots are within range (between 21 and 29 MT)
-    lot_status_ok = lot_status == "Within range"
-    
-    # Display lot status validation information
-    lot_status_info = pd.DataFrame({
-        'export_lot': lot_totals.index,
-        'total_net_weight_kg': lot_totals.values,
-        'lot_status': lot_status
-    })
-    lot_status_outside_range = lot_status_info[~lot_status_ok]
-    # Display lot status validation information
-    if not lot_status_outside_range.empty:
-        st.write("### Lot Status Overview - Out of Range")
-        st.dataframe(lot_status_outside_range)
-
-
-    st.write("all_ids_valid:", all_ids_valid)
-    st.write("any_quota_exceeded:", any_quota_exceeded)
-    st.write("lot_status_ok:", lot_status_ok)
-
-    if all(lot_status_ok):
-        st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-        if st.button("Generate Approval PDF"):
-            total_kg = int(lot_totals.sum())
-            pdf_file = generate_pdf_confirmation(
-                lot_numbers=lot_totals.index.tolist(),
-                exporter_name=exporter_name,
-                farmer_count=uploaded_df['farmer_id'].nunique(),
-                total_kg=total_kg,
-                lot_kg_summary=lot_totals.to_dict(),
-                logo_path=LOGO_PATH,
-                logo_cocoa=LOGO_COCOA
-            )
-            save_approval_to_db(
-                lot_numbers=lot_totals.index.tolist(),
-                exporter_name=exporter_name,
-                file_name=pdf_file
-            )
-            with open(pdf_file, "rb") as f:
-                st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
+    # Function to check lot weight status
+def check_lot_status(weight_in_kg):
+    weight_in_mt = weight_in_kg / 1000  # Convert to metric tons (MT)
+    if weight_in_mt < 21:
+        return "Too low"
+    elif weight_in_mt > 29:
+        return "Too high"
     else:
-    # Only display this if some lots are not within range (to avoid duplication)
-        if lot_status_outside_range.empty:
-            st.success("All lots are within the allowed range!")
+        return "Within range"
+
+# Apply lot weight status check
+lot_status = lot_totals.apply(check_lot_status)
+
+# Check if all lots are within range (between 21 and 29 MT)
+lot_status_ok = lot_status == "Within range"
+
+# Display lot status validation information
+lot_status_info = pd.DataFrame({
+    'export_lot': lot_totals.index,
+    'total_net_weight_kg': lot_totals.values,
+    'lot_status': lot_status
+})
+
+# ##$ Filter for lots that are out of range (either "Too low" or "Too high")
+lot_status_outside_range = lot_status_info[~lot_status_ok]
+
+# ##$ Only display the "Out of Range" lots if there are any
+if not lot_status_outside_range.empty:
+    st.write("### Lot Status Overview - Out of Range")
+    st.dataframe(lot_status_outside_range)
+
+# Display overall validation info
+st.write("all_ids_valid:", all_ids_valid)
+st.write("any_quota_exceeded:", any_quota_exceeded)
+
+# ##$ Display lot status table only if needed (when any lot is out of range)
+if not lot_status_outside_range.empty:
+    st.write("lot_status_ok:", lot_status_ok)
+else:
+    # If all lots are within range, do not show the lot status table
+    st.write("All lots are within the allowed range!")
+    
+if all(lot_status_ok):
+    st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
+    if st.button("Generate Approval PDF"):
+        total_kg = int(lot_totals.sum())
+        pdf_file = generate_pdf_confirmation(
+            lot_numbers=lot_totals.index.tolist(),
+            exporter_name=exporter_name,
+            farmer_count=uploaded_df['farmer_id'].nunique(),
+            total_kg=total_kg,
+            lot_kg_summary=lot_totals.to_dict(),
+            logo_path=LOGO_PATH,
+            logo_cocoa=LOGO_COCOA
+        )
+        save_approval_to_db(
+            lot_numbers=lot_totals.index.tolist(),
+            exporter_name=exporter_name,
+            file_name=pdf_file
+        )
+        with open(pdf_file, "rb") as f:
+            st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
+else:
+    st.warning("Some lots do not meet the weight requirements!")
