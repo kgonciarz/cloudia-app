@@ -263,7 +263,7 @@ if delivery_file:
 
     
 
-    @st.cache_data
+    #@st.cache_data
     def load_quota_view():
         result = supabase.table("quota_view").select("*").execute()
         return pd.DataFrame(result.data)
