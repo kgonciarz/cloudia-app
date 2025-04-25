@@ -283,8 +283,13 @@ def check_lot_status(weight_in_kg):
     else:
         return "Within range"
 
-# Apply lot weight status check
-lot_status = lot_totals.apply(check_lot_status)
+# Ensure lot_totals is a valid pandas Series before applying the function
+if isinstance(lot_totals, pd.Series):
+    # Apply lot weight status check
+    lot_status = lot_totals.apply(check_lot_status)
+else:
+    st.error("Failed to calculate 'lot_totals' correctly.")
+    st.stop()
 
 # Check if all lots are within range (between 21 and 29 MT)
 lot_status_ok = lot_status == "Within range"
@@ -337,3 +342,4 @@ if all(lot_status_ok):
             st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
 else:
     st.warning("Some lots do not meet the weight requirements!")
+    st.dataframe(lot_status_info[~lot_status_ok])
