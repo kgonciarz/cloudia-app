@@ -267,12 +267,14 @@ if delivery_file:
 
     exceeded_df = quota_df[quota_df['quota_status'] == 'EXCEEDED']
 
-    if not exceeded_df.empty:
-        st.warning("These farmers have exceeded their quota:")
-        st.dataframe(exceeded_df[['farmer_id', 'total_net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
+    #if not exceeded_df.empty:
+     #   st.warning("These farmers have exceeded their quota:")
+      #  st.dataframe(exceeded_df[['farmer_id', 'total_net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
 
-    st.write("### Quota Overview")
-    st.dataframe(quota_df[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status']])
+st.write("### Quota Overview (Only Warnings and Exceeded)")
+quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
+st.dataframe(quota_filtered[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status']])
+
 
 
     all_ids_valid = len(unknown_farmers) == 0
