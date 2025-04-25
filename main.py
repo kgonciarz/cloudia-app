@@ -275,6 +275,7 @@ if delivery_file:
     # Function to check lot weight status
     def check_lot_status(weight_in_kg):
         weight_in_mt = weight_in_kg / 1000  # Convert to metric tons (MT)
+        st.write(f"Converted weight: {weight_in_kg} kg = {weight_in_mt} MT")  # Debugging line
         if weight_in_mt < 21:
             return "Too low"
         elif weight_in_mt > 29:
