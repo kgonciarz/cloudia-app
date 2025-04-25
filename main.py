@@ -273,7 +273,20 @@ if delivery_file:
 
     st.write("### Quota Overview (Only Warnings and Exceeded)")
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
-    st.dataframe(quota_filtered[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status']])
+
+    def highlight_quota(row):
+        if row['quota_status'] == 'EXCEEDED':
+            return ['background-color: #ffcccc'] * len(row)  # czerwony
+        elif row['quota_status'] == 'WARNING':
+            return ['background-color: #fff3cd'] * len(row)  # żółty
+        else:
+            return [''] * len(row)
+
+    styled_quota = quota_filtered[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status']]\
+        .style.apply(highlight_quota, axis=1)
+
+    st.dataframe(styled_quota, use_container_width=True)
+
 
 
 
