@@ -76,10 +76,8 @@ def save_delivery_to_supabase(df):
         'exporter': 'exporter'
     }
     
-    # Rename columns based on the mapping
     df = df.rename(columns=column_mapping)
     
-    # Ensure the columns match the Supabase table schema
     required_columns = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
     missing_columns = [col for col in required_columns if col not in df.columns]
     
@@ -87,30 +85,29 @@ def save_delivery_to_supabase(df):
         st.error(f"Missing required columns: {', '.join(missing_columns)}")
         return
     
-    # Clean data if needed
     df_cleaned = df.copy()
     df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
-
-    # Handle missing purchase_date by filling with today's date if it is null
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
-
-    # Convert Excel date numbers to datetime format
+    
     def excel_date_to_date(excel_date):
-        if isinstance(excel_date, (int, float)):  # Check if it's a number (Excel date format)
-            # Excel's date system starts from January 1, 1900
+        if isinstance(excel_date, (int, float)):
             return (pd.to_datetime('1899-12-30') + pd.to_timedelta(excel_date, unit='D')).strftime('%Y-%m-%d')
-        return excel_date  # Return original if not an Excel date number
+        return excel_date
 
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
-
-    # Handle potential duplicates based on export_lot and farmer_id
-    existing_records = supabase.table("traceability").select("export_lot", "farmer_id").execute().data
-    existing_records_df = pd.DataFrame(existing_records)
     
-    # Remove rows where export_lot + farmer_id combination already exists
-    df_cleaned = df_cleaned[~df_cleaned[['export_lot', 'farmer_id']].duplicated()]
+    # 🚀 Kluczowa zmiana tutaj:
+    existing_records = supabase.table("traceability").select("export_lot", "exporter", "farmer_id").execute().data
+    existing_records_df = pd.DataFrame(existing_records)
 
-    # Convert to dictionary and insert in chunks if necessary
+    if not existing_records_df.empty:
+        merged = df_cleaned.merge(existing_records_df, on=["export_lot", "exporter", "farmer_id"], how="left", indicator=True)
+        df_cleaned = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+
+    if df_cleaned.empty:
+        st.info("No new deliveries to insert. All records already exist.")
+        return
+
     data = df_cleaned.to_dict(orient="records")
     
     try:
@@ -119,6 +116,7 @@ def save_delivery_to_supabase(df):
     except Exception as e:
         st.error(f"Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
+
 
 
 
