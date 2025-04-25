@@ -63,6 +63,7 @@ def delete_existing_delivery(lot_number, exporter_name):
     }).execute()
 
 
+
 def save_delivery_to_supabase(df):
     # Map the columns from Excel template to the Supabase schema
     column_mapping = {
@@ -92,6 +93,15 @@ def save_delivery_to_supabase(df):
 
     # Handle missing purchase_date by filling with today's date if it is null
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+
+    # Convert Excel date numbers to datetime format
+    def excel_date_to_date(excel_date):
+        if isinstance(excel_date, (int, float)):  # Check if it's a number (Excel date format)
+            # Excel's date system starts from January 1, 1900
+            return (pd.to_datetime('1899-12-30') + pd.to_timedelta(excel_date, unit='D')).strftime('%Y-%m-%d')
+        return excel_date  # Return original if not an Excel date number
+
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
 
     # Handle potential duplicates based on export_lot and farmer_id
     existing_records = supabase.table("traceability").select("export_lot", "farmer_id").execute().data
