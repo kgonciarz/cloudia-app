@@ -62,22 +62,42 @@ def delete_existing_delivery(lot_number, exporter_name):
         "exporter": exporter_name
     }).execute()
 
+
 def save_delivery_to_supabase(df):
+    # Map the columns from Excel template to the Supabase schema
+    column_mapping = {
+        'cooperative name': 'cooperative_name',
+        'export lot n°/connaissement': 'export_lot',
+        'date of purchase from cooperative': 'purchase_date',
+        'certification': 'certification',
+        'farmer_id': 'farmer_id',
+        'net weight (kg)': 'net_weight_kg',
+        'exporter': 'exporter'
+    }
+    
+    # Rename columns based on the mapping
+    df = df.rename(columns=column_mapping)
+    
     # Ensure the columns match the Supabase table schema
-    required_columns = ['export_lot', 'exporter', 'farmer_id', 'farm_id', 'net_weight_kg']
+    required_columns = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
     missing_columns = [col for col in required_columns if col not in df.columns]
     
     if missing_columns:
         st.error(f"Missing required columns: {', '.join(missing_columns)}")
         return
-
+    
     # Clean data if needed
     df_cleaned = df.copy()
     df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
 
-    # Handle potential duplicates
+    # Handle missing purchase_date by filling with today's date if it is null
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+
+    # Handle potential duplicates based on export_lot and farmer_id
     existing_records = supabase.table("traceability").select("export_lot", "farmer_id").execute().data
     existing_records_df = pd.DataFrame(existing_records)
+    
+    # Remove rows where export_lot + farmer_id combination already exists
     df_cleaned = df_cleaned[~df_cleaned[['export_lot', 'farmer_id']].duplicated()]
 
     # Convert to dictionary and insert in chunks if necessary
@@ -85,9 +105,11 @@ def save_delivery_to_supabase(df):
     
     try:
         supabase.table("traceability").insert(data).execute()
+        st.success("Data successfully inserted into traceability table!")
     except Exception as e:
         st.error(f"Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
+
 
 
 def save_approval_to_db(lot_numbers, exporter_name, file_name, approved_by="CloudIA"):
