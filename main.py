@@ -295,8 +295,8 @@ if delivery_file:
        # 'lot_status': lot_status
     #})
     
-    st.write("### Lot Status Overview")
-    st.dataframe(lot_status_info)
+    #st.write("### Lot Status Overview")
+    #st.dataframe(lot_status_info)
 
     st.write("all_ids_valid:", all_ids_valid)
     st.write("any_quota_exceeded:", any_quota_exceeded)
