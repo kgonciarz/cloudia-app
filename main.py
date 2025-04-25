@@ -289,11 +289,11 @@ if delivery_file:
     lot_status_ok = lot_status == "Within range"
     
     # Display lot status validation information
-    lot_status_info = pd.DataFrame({
-        'export_lot': lot_totals.index,
-        'total_net_weight_kg': lot_totals.values,
-        'lot_status': lot_status
-    })
+    #lot_status_info = pd.DataFrame({
+     #   'export_lot': lot_totals.index,
+      #  'total_net_weight_kg': lot_totals.values,
+       # 'lot_status': lot_status
+    #})
     
     st.write("### Lot Status Overview")
     st.dataframe(lot_status_info)
