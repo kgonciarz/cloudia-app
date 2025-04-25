@@ -330,7 +330,8 @@ if delivery_file:
 
     st.write("all_ids_valid:", all_ids_valid)
     st.write("any_quota_exceeded:", any_quota_exceeded)
-    #st.write("lot_status_ok:", lot_status_ok)
+    st.write("lot_status_ok:", lot_status_ok.all())
+
 
     if all(lot_status_ok):
         st.success("File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
