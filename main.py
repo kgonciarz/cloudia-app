@@ -327,5 +327,5 @@ if delivery_file:
                 st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
     else:
     # Only display this if some lots are not within range (to avoid duplication)
-    if lot_status_outside_range.empty:
-        st.success("All lots are within the allowed range!")
+        if lot_status_outside_range.empty:
+            st.success("All lots are within the allowed range!")
