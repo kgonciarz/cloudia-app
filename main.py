@@ -269,8 +269,8 @@ if delivery_file:
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = not exceeded_df.empty
 
- if all_ids_valid and not any_quota_exceeded:
-    lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
+    if all_ids_valid and not any_quota_exceeded:
+        lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
     
     # Function to check lot weight status
     def check_lot_status(weight_in_kg):
