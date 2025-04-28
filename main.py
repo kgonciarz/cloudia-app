@@ -264,50 +264,43 @@ if delivery_file:
     
 
     #@st.cache_data
-if delivery_file:  # <-- czyli tylko jeśli Excel został wgrany!
-    uploaded_df = pd.read_excel(delivery_file)
-    uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
-
-    # Twoje wcześniejsze przetwarzanie danych tutaj...
-
-    # Teraz ładowanie quota
     def load_quota_view():
         result = supabase.table("quota_view").select("*").execute()
         return pd.DataFrame(result.data)
 
     quota_df = load_quota_view()
 
-    # Filtruj tylko farmers którzy mają WARNING albo EXCEEDED
+    exceeded_df = quota_df[quota_df['quota_status'] == 'EXCEEDED']
+
+    #if not exceeded_df.empty:
+     #   st.warning("These farmers have exceeded their quota:")
+      #  st.dataframe(exceeded_df[['farmer_id', 'total_net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
+
+    st.write("### Quota Overview (Only Warnings and Exceeded)")
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
-    if not quota_filtered.empty:
-        st.write("### Quota Overview (Only Warnings and Exceeded)")
+    def highlight_status(val):
+        if val == 'EXCEEDED':
+            return 'background-color: #ffcccc'  # czerwony
+        elif val == 'WARNING':
+            return 'background-color: #fff3cd'  # żółty
+        return ''
 
-        def highlight_status(val):
-            if val == 'EXCEEDED':
-                return 'background-color: #ffcccc'  # czerwony
-            elif val == 'WARNING':
-                return 'background-color: #fff3cd'  # żółty
-            return ''
+    styled_quota = quota_filtered[[
+        'farmer_id', 
+        'max_quota_kg', 
+        'total_net_weight_kg', 
+        'quota_used_pct', 
+        'quota_status'
+    ]].style\
+        .applymap(highlight_status, subset=['quota_status'])\
+        .format({
+            'max_quota_kg': '{:.0f}',
+            'total_net_weight_kg': '{:.0f}',
+            'quota_used_pct': '{:.2f}',
+        })
 
-        styled_quota = quota_filtered[[ 
-            'farmer_id', 
-            'max_quota_kg', 
-            'total_net_weight_kg', 
-            'quota_used_pct', 
-            'quota_status'
-        ]].style\
-            .applymap(highlight_status, subset=['quota_status'])\
-            .format({
-                'max_quota_kg': '{:.0f}',
-                'total_net_weight_kg': '{:.0f}',
-                'quota_used_pct': '{:.2f}',
-            })
-
-        st.dataframe(styled_quota, use_container_width=True)
-    else:
-        st.success("✅ All farmers are within their assigned quotas. No warnings or exceeded quotas.")
-
+    st.dataframe(styled_quota, use_container_width=True)
 
 
 
