@@ -264,20 +264,19 @@ if delivery_file:
     
 
     #@st.cache_data
-    def load_quota_view():
-        result = supabase.table("quota_view").select("*").execute()
-        return pd.DataFrame(result.data)
+# Ładuj quota_view
+def load_quota_view():
+    result = supabase.table("quota_view").select("*").execute()
+    return pd.DataFrame(result.data)
 
-    quota_df = load_quota_view()
+quota_df = load_quota_view()
 
-    exceeded_df = quota_df[quota_df['quota_status'] == 'EXCEEDED']
+# Filtruj tylko farmers którzy mają WARNING albo EXCEEDED
+quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
-    #if not exceeded_df.empty:
-     #   st.warning("These farmers have exceeded their quota:")
-      #  st.dataframe(exceeded_df[['farmer_id', 'total_net_weight_kg', 'max_quota_kg', 'quota_used_pct']])
-
+# Pokazuj tylko jeśli quota_filtered nie jest pusta
+if not quota_filtered.empty:
     st.write("### Quota Overview (Only Warnings and Exceeded)")
-    quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
     def highlight_status(val):
         if val == 'EXCEEDED':
@@ -286,7 +285,7 @@ if delivery_file:
             return 'background-color: #fff3cd'  # żółty
         return ''
 
-    styled_quota = quota_filtered[[
+    styled_quota = quota_filtered[[ 
         'farmer_id', 
         'max_quota_kg', 
         'total_net_weight_kg', 
@@ -301,6 +300,9 @@ if delivery_file:
         })
 
     st.dataframe(styled_quota, use_container_width=True)
+else:
+    st.success("✅ All farmers are within their assigned quotas. No warnings or exceeded quotas.")
+
 
 
 
