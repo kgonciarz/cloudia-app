@@ -333,26 +333,28 @@ if delivery_file:
     st.write("lot_status_ok:", lot_status_ok.all())
 
 
-if all_ids_valid and not any_quota_exceeded and all(lot_status_ok):
-    st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-    if st.button("Generate Approval PDF"):
-        total_kg = int(lot_totals.sum())
-        pdf_file = generate_pdf_confirmation(
-            lot_numbers=lot_totals.index.tolist(),
-            exporter_name=exporter_name,
-            farmer_count=uploaded_df['farmer_id'].nunique(),
-            total_kg=total_kg,
-            lot_kg_summary=lot_totals.to_dict(),
-            logo_path=LOGO_PATH,
-            logo_cocoa=LOGO_COCOA
-        )
-        save_approval_to_db(
-            lot_numbers=lot_totals.index.tolist(),
-            exporter_name=exporter_name,
-            file_name=pdf_file
-        )
-        with open(pdf_file, "rb") as f:
-            st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
-else:
-    st.warning("❌ PDF cannot be generated. Please make sure all quotas are OK and lots are within the 21–29 MT range.")
+if 'all_ids_valid' in locals() and 'any_quota_exceeded' in locals() and 'lot_status_ok' in locals():
+    if all_ids_valid and not any_quota_exceeded and all(lot_status_ok):
+        st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
+        if st.button("Generate Approval PDF"):
+            total_kg = int(lot_totals.sum())
+            pdf_file = generate_pdf_confirmation(
+                lot_numbers=lot_totals.index.tolist(),
+                exporter_name=exporter_name,
+                farmer_count=uploaded_df['farmer_id'].nunique(),
+                total_kg=total_kg,
+                lot_kg_summary=lot_totals.to_dict(),
+                logo_path=LOGO_PATH,
+                logo_cocoa=LOGO_COCOA
+            )
+            save_approval_to_db(
+                lot_numbers=lot_totals.index.tolist(),
+                exporter_name=exporter_name,
+                file_name=pdf_file
+            )
+            with open(pdf_file, "rb") as f:
+                st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
+    else:
+        st.warning("❌ PDF cannot be generated. Please make sure all quotas are OK and lots are within the 21–29 MT range.")
+
 
