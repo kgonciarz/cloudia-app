@@ -66,10 +66,11 @@ def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
 
     try:
         response = supabase.rpc('delete_traceability_records', {
-            'lot': export_lot,
-            'exporter': exporter_name,
-            'farmer_ids': farmer_ids
+            'lot': str(export_lot),
+            'exporter_param': str(exporter_name),
+            'farmer_ids': [str(fid) for fid in farmer_ids]
         }).execute()
+
         print("✅ RPC response:", response)
     except Exception as e:
         st.error(f"❌ RPC Delete Error: {e}")
