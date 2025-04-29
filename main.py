@@ -55,16 +55,15 @@ def load_all_farmers():
     return farmers_df
 
 def delete_existing_delivery(df_cleaned):
-    for _, row in df_cleaned.iterrows():
-        lot = str(row['export_lot']).strip().lower()
-        exporter = str(row['exporter']).strip().lower()
-        farmer_id = str(row['farmer_id']).strip().lower()
-
+    unique_rows = df_cleaned[['export_lot', 'exporter', 'farmer_id']].drop_duplicates()
+    
+    for _, row in unique_rows.iterrows():
         supabase.table("traceability").delete().match({
-            "export_lot": lot,
-            "exporter": exporter,
-            "farmer_id": farmer_id
+            "export_lot": str(row['export_lot']).strip().lower(),
+            "exporter": str(row['exporter']).strip().lower(),
+            "farmer_id": str(row['farmer_id']).strip().lower()
         }).execute()
+
 
 
 
