@@ -54,15 +54,18 @@ def load_all_farmers():
 
     return farmers_df
 
-def delete_existing_delivery(df_cleaned):
-    unique_rows = df_cleaned[['export_lot', 'exporter', 'farmer_id']].drop_duplicates()
-    
-    for _, row in unique_rows.iterrows():
+def delete_existing_delivery_fast(df_cleaned):
+    # Usuń duplikaty, zostaw tylko unikalne kombinacje
+    unique_keys = df_cleaned[['export_lot', 'exporter', 'farmer_id']].drop_duplicates()
+
+    # Iteruj po unikalnych kombinacjach i wykonuj delete
+    for _, row in unique_keys.iterrows():
         supabase.table("traceability").delete().match({
             "export_lot": str(row['export_lot']).strip().lower(),
             "exporter": str(row['exporter']).strip().lower(),
             "farmer_id": str(row['farmer_id']).strip().lower()
         }).execute()
+
 
 
 
@@ -231,7 +234,8 @@ if delivery_file:
 
 
 
-    delete_existing_delivery(uploaded_df)
+    delete_existing_delivery_fast(uploaded_df)
+
 
 
     # ✅ WSTAWIAMY WSZYSTKO NA NOWO
