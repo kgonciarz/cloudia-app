@@ -55,15 +55,19 @@ def load_all_farmers():
     return farmers_df
 
 def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
-    # zamień na listę jeśli nie jest
+    # upewnij się, że farmer_ids to Pythonowa lista zwykłych stringów
     if not isinstance(farmer_ids, list):
         farmer_ids = farmer_ids.tolist()
+
+    # wymuś czyste str
+    farmer_ids = [str(farmer_id) for farmer_id in farmer_ids]
 
     supabase.rpc('delete_traceability_records', {
         'lot': export_lot,
         'exporter': exporter_name,
         'farmer_ids': farmer_ids
     }).execute()
+
 
 
 
