@@ -54,6 +54,16 @@ def load_all_farmers():
 
     return farmers_df
 
+def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
+    if farmer_ids.size > 0:
+        supabase.table("traceability")\
+            .delete()\
+            .match({
+                "export_lot": export_lot,
+                "exporter": exporter_name
+            })\
+            .in_("farmer_id", list(farmer_ids))\
+            .execute()
 
 
 def save_delivery_to_supabase(df):
@@ -96,16 +106,6 @@ def save_delivery_to_supabase(df):
         st.error(f"❌ Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
 
-def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    if farmer_ids.size > 0:
-        supabase.table("traceability")\
-            .delete()\
-            .match({
-                "export_lot": export_lot,
-                "exporter": exporter_name
-            })\
-            .in_("farmer_id", list(farmer_ids))\
-            .execute()
 
 
 
