@@ -221,13 +221,12 @@ if delivery_file:
     # ✅ NADPISYWANIE DANYCH — delete + insert
     lot_numbers = uploaded_df['export_lot'].unique()
 
-    def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-        for farmer_id in farmer_ids:
-            supabase.table("traceability").delete().match({
-                "export_lot": export_lot,
-                "exporter": exporter_name,
-                "farmer_id": farmer_id
-            }).execute()
+def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
+    supabase.table("traceability").delete().match({
+        "export_lot": export_lot,
+        "exporter": exporter_name
+    }).in_("farmer_id", farmer_ids.tolist()).execute()
+
 
     for lot in lot_numbers:
         farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
