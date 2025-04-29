@@ -97,12 +97,16 @@ def save_delivery_to_supabase(df):
         print(f"Error details: {e}")
 
 def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    for farmer_id in list(farmer_ids):
-        supabase.table("traceability").delete().match({
-            "export_lot": export_lot,
-            "exporter": exporter_name,
-            "farmer_id": farmer_id
-        }).execute()
+    if farmer_ids.size > 0:
+        supabase.table("traceability")\
+            .delete()\
+            .match({
+                "export_lot": export_lot,
+                "exporter": exporter_name
+            })\
+            .in_("farmer_id", list(farmer_ids))\
+            .execute()
+
 
 
 
