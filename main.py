@@ -391,6 +391,6 @@ if 'all_ids_valid' in locals() and 'any_quota_exceeded' in locals() and 'lot_sta
             with open(pdf_file, "rb") as f:
                 st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
     else:
-        st.warning("❌ PDF cannot be generated. Please make sure all quotas are OK and lots are within the 21–29 MT range.")
+        rollback_delivery(uploaded_df)
 
 
