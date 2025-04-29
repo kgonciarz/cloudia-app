@@ -249,8 +249,11 @@ if delivery_file:
     for lot in uploaded_df['export_lot'].unique():
         farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
         farmer_ids_for_lot = farmer_ids_for_lot.tolist()
-        farmer_ids_for_lot = [str(farmer_id) for farmer_id in farmer_ids_for_lot]  # zamieniamy na czyste listy stringów
-        delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+        farmer_ids_for_lot = [str(farmer_id) for farmer_id in farmer_ids_for_lot]
+
+        if farmer_ids_for_lot:  # nie wysyłamy pustych list
+            delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+
 
 
 
