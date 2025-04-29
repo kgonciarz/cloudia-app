@@ -54,15 +54,13 @@ def load_all_farmers():
 
     return farmers_df
 
-def delete_existing_delivery_fast(df_cleaned):
-    unique_keys = df_cleaned[['export_lot', 'exporter', 'farmer_id']].drop_duplicates()
+def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
+    supabase.rpc('delete_traceability_records', {
+        'lot': export_lot,
+        'exporter': exporter_name,
+        'farmer_ids': farmer_ids.tolist()
+    }).execute()
 
-    for _, row in unique_keys.iterrows():
-        supabase.table("traceability").delete().match({
-            "export_lot": str(row['export_lot']).strip().lower(),
-            "exporter": str(row['exporter']).strip().lower(),
-            "farmer_id": str(row['farmer_id']).strip().lower()
-        }).execute()
 
 
 
@@ -234,7 +232,10 @@ if delivery_file:
 
 
 
-    delete_existing_delivery_fast(uploaded_df)
+    for lot in uploaded_df['export_lot'].unique():
+    farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
+    delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+
 
 
 
