@@ -367,7 +367,7 @@ def rollback_delivery(uploaded_df):
         farmer_ids_for_lot = [str(farmer_id) for farmer_id in farmer_ids_for_lot]
         if farmer_ids_for_lot:
             delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
-    st.error("❌ Uploaded delivery has been rolled back from database due to validation errors.")
+    st.error("❌ Uploaded delivery has been rolled back from database due to validation errors. PDF cannot be generated.")
     
 if 'all_ids_valid' in locals() and 'any_quota_exceeded' in locals() and 'lot_status_ok' in locals():
     if all_ids_valid and not any_quota_exceeded and all(lot_status_ok):
