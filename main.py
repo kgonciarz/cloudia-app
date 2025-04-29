@@ -115,6 +115,7 @@ def save_delivery_to_supabase(df):
         return excel_date
 
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
 
     # ❗ NIE SPRAWDZAMY czy istnieje – bo właśnie to już usunęliśmy wcześniej!
     data = df_cleaned.to_dict(orient="records")
