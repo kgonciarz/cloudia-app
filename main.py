@@ -66,11 +66,14 @@ def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
     farmer_ids = [str(farmer_id) for farmer_id in farmer_ids]
 
     # Teraz wywołanie RPC
-    supabase.rpc('delete_traceability_records', {
+    response = supabase.rpc('delete_traceability_records', {
         'lot': export_lot,
         'exporter': exporter_name,
         'farmer_ids': farmer_ids
     }).execute()
+
+    print("RPC response:", response)
+
 
 
 
