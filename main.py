@@ -218,7 +218,9 @@ if delivery_file:
         st.error("Missing 'exporter' column in the Excel file.")
         st.stop()
 
-    exporter_name = uploaded_df['exporter'].dropna().astype(str).iloc[0]
+    exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
+    exporter_name = ", ".join(exporter_names)
+
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
