@@ -321,7 +321,7 @@ if delivery_file:
 
     lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
 
-    if all_ids_valid and not any_quota_exceeded:
+    #if all_ids_valid and not any_quota_exceeded:
         #st.success("File approved...")
 
     
