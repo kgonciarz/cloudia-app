@@ -358,7 +358,17 @@ if delivery_file:
     st.write("any_quota_exceeded:", any_quota_exceeded)
     st.write("lot_status_ok:", lot_status_ok.all())
 
-
+# 4. ROLLBACK jeśli coś nie OK
+def rollback_delivery(uploaded_df):
+    lot_numbers = uploaded_df['export_lot'].unique()
+    exporter_name = uploaded_df['exporter'].iloc[0]
+    for lot in lot_numbers:
+        farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
+        farmer_ids_for_lot = [str(farmer_id) for farmer_id in farmer_ids_for_lot]
+        if farmer_ids_for_lot:
+            delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+    st.error("❌ Uploaded delivery has been rolled back from database due to validation errors.")
+    
 if 'all_ids_valid' in locals() and 'any_quota_exceeded' in locals() and 'lot_status_ok' in locals():
     if all_ids_valid and not any_quota_exceeded and all(lot_status_ok):
         st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
