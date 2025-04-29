@@ -56,13 +56,7 @@ def load_all_farmers():
 
 
 
-def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    for farmer_id in farmer_ids:
-        supabase.table("traceability").delete().match({
-            "export_lot": export_lot,
-            "exporter": exporter_name,
-            "farmer_id": farmer_id
-        }).execute()
+
 
 
 
@@ -186,11 +180,8 @@ if delivery_file:
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
 
-    # 🔧 Dodaj bezpieczne czyszczenie farmer_id
     if 'farmer_id' in uploaded_df.columns:
         uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
-
-
 
     if 'exporter' not in uploaded_df.columns:
         st.error("Missing 'exporter' column in the Excel file.")
@@ -201,7 +192,6 @@ if delivery_file:
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
     missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
-
     if missing_columns:
         st.error(f"Missing columns: {', '.join(missing_columns)}")
         st.stop()
@@ -223,23 +213,29 @@ if delivery_file:
 
     unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
 
-
-    #for db_id in farmers_df['farmer_id']:
-
-
     if unknown_farmers.size > 0:
         st.error("The following farmers are NOT in the database:")
         st.write(list(unknown_farmers))
         st.stop()
 
-# 1. Przed zapisem, usuń wszystkie stare dane dla export_lot + exporter
-for lot in lot_numbers:
-    farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
-    delete_existing_delivery(lot, exporter_name, farmer_ids_for_lot)
+    # ✅ NADPISYWANIE DANYCH — delete + insert
+    lot_numbers = uploaded_df['export_lot'].unique()
 
+    def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
+        for farmer_id in farmer_ids:
+            supabase.table("traceability").delete().match({
+                "export_lot": export_lot,
+                "exporter": exporter_name,
+                "farmer_id": farmer_id
+            }).execute()
 
-# 2. Zapisz cały plik bez dodatkowych sprawdzania istniejących danych
+    for lot in lot_numbers:
+        farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
+        delete_existing_delivery(lot, exporter_name, farmer_ids_for_lot)
+
+    # ✅ WSTAWIAMY WSZYSTKO NA NOWO
     save_delivery_to_supabase(uploaded_df)
+
 
 
     
