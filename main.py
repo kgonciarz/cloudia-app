@@ -56,11 +56,14 @@ def load_all_farmers():
 
 
 
-def delete_existing_delivery(lot_number, exporter_name):
-    supabase.table("traceability").delete().match({
-        "export_lot": lot_number,
-        "exporter": exporter_name
-    }).execute()
+def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
+    for farmer_id in farmer_ids:
+        supabase.table("traceability").delete().match({
+            "export_lot": export_lot,
+            "exporter": exporter_name,
+            "farmer_id": farmer_id
+        }).execute()
+
 
 
 
@@ -230,10 +233,10 @@ if delivery_file:
         st.stop()
 
 # 1. Przed zapisem, usuń wszystkie stare dane dla export_lot + exporter
-    lot_numbers = uploaded_df['export_lot'].unique()
+for lot in lot_numbers:
+    farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
+    delete_existing_delivery(lot, exporter_name, farmer_ids_for_lot)
 
-    for lot in lot_numbers:
-        delete_existing_delivery(lot, exporter_name)
 
 # 2. Zapisz cały plik bez dodatkowych sprawdzania istniejących danych
     save_delivery_to_supabase(uploaded_df)
