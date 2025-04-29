@@ -239,7 +239,9 @@ if delivery_file:
 
     for lot in uploaded_df['export_lot'].unique():
         farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
+        farmer_ids_for_lot = farmer_ids_for_lot.tolist() if hasattr(farmer_ids_for_lot, 'tolist') else farmer_ids_for_lot
         delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+
 
 
 
