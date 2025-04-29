@@ -222,10 +222,16 @@ if delivery_file:
     lot_numbers = uploaded_df['export_lot'].unique()
 
 def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    supabase.table("traceability").delete().match({
-        "export_lot": export_lot,
-        "exporter": exporter_name
-    }).in_("farmer_id", farmer_ids.tolist()).execute()
+    if farmer_ids.size > 0:
+        supabase.table("traceability")\
+            .delete()\
+            .match({
+                "export_lot": export_lot,
+                "exporter": exporter_name
+            })\
+            .in_("farmer_id", list(farmer_ids))\
+            .execute()
+
 
 
     for lot in lot_numbers:
