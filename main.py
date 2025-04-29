@@ -56,11 +56,6 @@ def load_all_farmers():
 
 
 
-
-
-
-
-
 def save_delivery_to_supabase(df):
     column_mapping = {
         'cooperative name': 'cooperative_name',
@@ -101,6 +96,13 @@ def save_delivery_to_supabase(df):
         st.error(f"❌ Error while inserting into traceability table: {e}")
         print(f"Error details: {e}")
 
+def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
+    for farmer_id in list(farmer_ids):
+        supabase.table("traceability").delete().match({
+            "export_lot": export_lot,
+            "exporter": exporter_name,
+            "farmer_id": farmer_id
+        }).execute()
 
 
 
@@ -220,14 +222,6 @@ if delivery_file:
 
     # ✅ NADPISYWANIE DANYCH — delete + insert
     lot_numbers = uploaded_df['export_lot'].unique()
-
-def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    for farmer_id in list(farmer_ids):
-        supabase.table("traceability").delete().match({
-            "export_lot": export_lot,
-            "exporter": exporter_name,
-            "farmer_id": farmer_id
-        }).execute()
 
 
 
