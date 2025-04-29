@@ -54,16 +54,18 @@ def load_all_farmers():
 
     return farmers_df
 
-def delete_existing_delivery(export_lot, exporter_name, farmer_ids):
-    if farmer_ids.size > 0:
-        supabase.table("traceability")\
-            .delete()\
-            .match({
-                "export_lot": export_lot,
-                "exporter": exporter_name
-            })\
-            .in_("farmer_id", list(farmer_ids))\
-            .execute()
+def delete_existing_delivery(df_cleaned):
+    for _, row in df_cleaned.iterrows():
+        lot = str(row['export_lot']).strip().lower()
+        exporter = str(row['exporter']).strip().lower()
+        farmer_id = str(row['farmer_id']).strip().lower()
+
+        supabase.table("traceability").delete().match({
+            "export_lot": lot,
+            "exporter": exporter,
+            "farmer_id": farmer_id
+        }).execute()
+
 
 
 def save_delivery_to_supabase(df):
