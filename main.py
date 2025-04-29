@@ -232,9 +232,8 @@ if delivery_file:
 
 
 
-    for lot in lot_numbers:
-        farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique()
-        delete_existing_delivery(lot, exporter_name, farmer_ids_for_lot)
+    delete_existing_delivery(uploaded_df)
+
 
     # ✅ WSTAWIAMY WSZYSTKO NA NOWO
     save_delivery_to_supabase(uploaded_df)
