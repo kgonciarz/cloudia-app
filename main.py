@@ -53,13 +53,13 @@ def load_all_farmers():
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
 
     return farmers_df
-
 def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
-    # Zamiana wszystkiego na stringi
+    # Zamiana wszystkiego na czyste stringi
     export_lot = str(export_lot)
     exporter_name = str(exporter_name)
     
-    if not isinstance(farmer_ids, list):
+    # Wymuś listę zwykłą + stringi
+    if hasattr(farmer_ids, 'tolist'):
         farmer_ids = farmer_ids.tolist()
 
     farmer_ids = [str(farmer_id) for farmer_id in farmer_ids]
@@ -70,13 +70,10 @@ def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
             'exporter': exporter_name,
             'farmer_ids': farmer_ids
         }).execute()
-        print("RPC response:", response)
+        print("✅ RPC response:", response)
     except Exception as e:
-        st.error(f"RPC Delete Error: {e}")
-        print("Full RPC error details:", e)
-
-
-
+        st.error(f"❌ RPC Delete Error: {e}")
+        print("❌ Full RPC error details:", e)
 
 
 
