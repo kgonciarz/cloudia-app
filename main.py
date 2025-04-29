@@ -290,7 +290,8 @@ if delivery_file:
 
 
     all_ids_valid = len(unknown_farmers) == 0
-    any_quota_exceeded = not quota_filtered.empty
+    any_quota_exceeded = 'EXCEEDED' in quota_filtered['quota_status'].values
+
 
 
     lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
