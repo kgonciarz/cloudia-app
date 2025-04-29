@@ -74,10 +74,10 @@ def save_delivery_to_supabase(df):
         'net weight (kg)': 'net_weight_kg',
         'exporter': 'exporter'
     }
-    
+
     df = df.rename(columns=column_mapping)
     required_columns = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
-    
+
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         st.error(f"Missing required columns: {', '.join(missing_columns)}")
@@ -94,37 +94,9 @@ def save_delivery_to_supabase(df):
 
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
 
-    # Pobierz istniejące rekordy z Supabase
-    existing_records = supabase.table("traceability").select("export_lot", "exporter", "farmer_id").execute().data
-    existing_records_df = pd.DataFrame(existing_records)
-
-    if not existing_records_df.empty:
-        # Upewnij się, że potrzebne kolumny istnieją
-        for col in ["export_lot", "exporter", "farmer_id"]:
-            if col not in existing_records_df.columns:
-                existing_records_df[col] = None
-
-        # Czyszczenie i unifikacja formatowania
-        for col in ["export_lot", "exporter", "farmer_id"]:
-            existing_records_df[col] = existing_records_df[col].astype(str).str.strip().str.lower()
-            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
-
-        # Usunięcie rekordów, które już istnieją w bazie
-        merged = df_cleaned.merge(
-            existing_records_df,
-            on=["export_lot", "exporter", "farmer_id"],
-            how="left",
-            indicator=True
-        )
-        df_cleaned = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
-
-    if df_cleaned.empty:
-        st.info("ℹ️ No new deliveries to insert. All records already exist.")
-        return
-
-    # Zapisz do Supabase
+    # ❗ NIE SPRAWDZAMY czy istnieje – bo właśnie to już usunęliśmy wcześniej!
     data = df_cleaned.to_dict(orient="records")
-    
+
     try:
         supabase.table("traceability").insert(data).execute()
         st.success(f"✅ Data successfully inserted! {len(data)} new records added.")
