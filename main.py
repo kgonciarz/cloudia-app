@@ -174,7 +174,12 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     pdf.ln(5)
     pdf.cell(0, 10, "Approved by CloudIA", ln=True)
 
-    filename = f"approval_GFC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    reference_number = lot_numbers[0] if len(lot_numbers) == 1 else "MULTI"
+    today_str = datetime.now().strftime('%Y%m%d')
+    exporter_clean = exporter_name.replace(" ", "_").replace("/", "_")[:20]  # max 20 znaków
+    total_volume_mt = round(total_kg / 1000, 2)
+
+    filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
     pdf.output(filename)
 
     # Save to DB
@@ -259,19 +264,9 @@ if delivery_file:
             delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
 
-
-
-
-
-
-
-
     # ✅ WSTAWIAMY WSZYSTKO NA NOWO
     save_delivery_to_supabase(uploaded_df)
 
-
-
-    
 
     #@st.cache_data
     # 3. Ładujemy quota_view
@@ -314,11 +309,6 @@ if delivery_file:
         st.warning(f"⚠️ {len(quota_filtered)} farmers in the uploaded file have quota warnings or exceeded limits.")
     else:
         st.success("✅ All farmers in the uploaded file are within their assigned quotas.")
-
-
-
-
-
 
 
     all_ids_valid = len(unknown_farmers) == 0
