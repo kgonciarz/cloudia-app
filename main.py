@@ -268,7 +268,7 @@ if delivery_file:
 
 
     # ✅ WSTAWIAMY WSZYSTKO NA NOWO
-    #save_delivery_to_supabase(uploaded_df)
+    save_delivery_to_supabase(uploaded_df)
 
 
     #@st.cache_data
@@ -362,7 +362,6 @@ if delivery_file:
 if 'all_ids_valid' in locals() and 'any_quota_exceeded' in locals() and 'lot_status_ok' in locals():
     if all_ids_valid and not any_quota_exceeded and all(lot_status_ok):
         st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-        save_delivery_to_supabase(uploaded_df)
         if st.button("Generate Approval PDF"):
             total_kg = int(lot_totals.sum())
             pdf_file = generate_pdf_confirmation(
