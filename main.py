@@ -57,20 +57,13 @@ def load_all_farmers():
 def delete_existing_delivery_fast(df_cleaned):
     unique_keys = df_cleaned[['export_lot', 'exporter', 'farmer_id']].drop_duplicates()
 
-    # Tworzymy warunki OR
-    conditions = []
     for _, row in unique_keys.iterrows():
-        lot = str(row['export_lot']).strip().lower()
-        exporter = str(row['exporter']).strip().lower()
-        farmer_id = str(row['farmer_id']).strip().lower()
-        condition = f"(export_lot.eq.{lot},exporter.eq.{exporter},farmer_id.eq.{farmer_id})"
-        conditions.append(condition)
+        supabase.table("traceability").delete().match({
+            "export_lot": str(row['export_lot']).strip().lower(),
+            "exporter": str(row['exporter']).strip().lower(),
+            "farmer_id": str(row['farmer_id']).strip().lower()
+        }).execute()
 
-    # Dzielimy na paczki (np. po 50), żeby nie przeciążyć API
-    batch_size = 50
-    for i in range(0, len(conditions), batch_size):
-        or_clause = ",".join(conditions[i:i + batch_size])
-        supabase.table("traceability").delete().or_(or_clause).execute()
 
 
 
