@@ -209,7 +209,12 @@ delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx
 
 farmers_df = load_all_farmers()
 
+    # 3. Ładujemy quota_view
+def load_quota_view():
+    result = supabase.table("quota_view").select("*").execute()
+    return pd.DataFrame(result.data)
 
+quota_df = load_quota_view()
 
 if delivery_file:
     uploaded_df = pd.read_excel(delivery_file)
@@ -284,12 +289,7 @@ quota_df = load_quota_view()
 
 
     #@st.cache_data
-    # 3. Ładujemy quota_view
-    def load_quota_view():
-        result = supabase.table("quota_view").select("*").execute()
-        return pd.DataFrame(result.data)
 
-    quota_df = load_quota_view()
 
     # 4. Filtrujemy TYLKO farmerów z przesłanego pliku
     uploaded_farmer_ids = uploaded_df['farmer_id'].unique()
