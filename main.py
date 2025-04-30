@@ -93,6 +93,15 @@ def save_delivery_to_supabase(df):
     except Exception as e:
         st.error(f"❌ Error while inserting into traceability table: {e}")
         return False
+def refresh_quota_view():
+    try:
+        supabase.rpc("refresh_quota_view").execute()
+        print("✅ quota_view successfully refreshed.")
+    except Exception as e:
+        print("❌ Failed to refresh quota_view:", e)
+
+refresh_quota_view()
+
 
 def load_quota_view():
     result = supabase.table("quota_view").select("*").execute()
