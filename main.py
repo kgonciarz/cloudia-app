@@ -6,6 +6,9 @@ from io import BytesIO
 from PIL import Image
 from supabase import create_client, Client
 import re
+import time
+time.sleep(1)  # daj Supabase 1 sekundę na zaktualizowanie view
+
 
 QUOTA_PER_HA = 800
 LOGO_PATH = "cloudia_logo.png"
@@ -268,7 +271,13 @@ if delivery_file:
 
 
     # ✅ WSTAWIAMY WSZYSTKO NA NOWO
-    save_delivery_to_supabase(uploaded_df)
+    inserted_ok = save_delivery_to_supabase(uploaded_df)
+if not inserted_ok:
+    st.stop()
+
+time.sleep(1)  # krótka pauza na propagację danych
+quota_df = load_quota_view()
+
 
 
     #@st.cache_data
