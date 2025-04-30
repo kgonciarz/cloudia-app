@@ -155,6 +155,8 @@ if delivery_file:
         farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique().tolist()
         delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
+# ... (wszystko przed tym zostaje bez zmian)
+
     inserted_ok = save_delivery_to_supabase(uploaded_df)
     if not inserted_ok:
         st.stop()
@@ -162,10 +164,18 @@ if delivery_file:
     time.sleep(1)  # daj czas na propagację danych
     quota_df = load_quota_view()
 
-    uploaded_farmer_ids = uploaded_df['farmer_id'].unique()
-    quota_df = quota_df[quota_df['farmer_id'].str.lower().isin(pd.Series(uploaded_farmer_ids).str.lower())]
+    # Diagnoza – sprawdź czy kolumna farmer_id istnieje
+    if 'farmer_id' not in quota_df.columns:
+        st.error("❌ quota_view does not contain 'farmer_id'. Columns returned: " + str(list(quota_df.columns)))
+        st.stop()
+
+    # Czyszczenie i filtrowanie
+    uploaded_ids = pd.Series(uploaded_df['farmer_id']).astype(str).str.strip().str.lower()
+    quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
+    quota_df = quota_df[quota_df['farmer_id'].isin(uploaded_ids)]
 
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
+
 
     if not quota_filtered.empty:
         st.write("### Quota Overview (Only Warnings and Exceeded)")
