@@ -102,6 +102,59 @@ def refresh_quota_view():
 
 refresh_quota_view()
 
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
+
+    if logo_path:
+        pdf.image(logo_path, x=10, y=20, w=40)
+    if logo_cocoa:
+        pdf.image(logo_cocoa, x=(210 - 110) / 2, y=20, w=110)
+
+    pdf.set_y(70)
+    pdf.set_font("Arial", "", 12)
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    pdf.multi_cell(0, 10, f"Generated on: {now}")
+    pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
+    pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
+    pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
+    pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
+
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Lot Summary", ln=True)
+    pdf.set_font("Arial", "", 12)
+    for lot, kg in lot_kg_summary.items():
+        pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
+
+    pdf.ln(5)
+    pdf.cell(0, 10, "Approved by CloudIA", ln=True)
+
+    reference_number = lot_numbers[0] if len(lot_numbers) == 1 else "MULTI"
+    today_str = datetime.now().strftime('%Y%m%d')
+    exporter_clean = exporter_name.replace(" ", "_").replace("/", "_")[:20]
+    total_volume_mt = round(total_kg / 1000, 2)
+
+    filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
+    pdf.output(filename)
+
+    # --- ZAPISZ DO TABELI approvals ---
+    data = {
+        "created_at": now,
+        "lot_number": ", ".join(str(l) for l in lot_numbers),
+        "exporter_name": exporter_name,
+        "approved_by": "CloudIA",
+        "file_name": filename
+    }
+    try:
+        supabase.table("approvals").insert(data).execute()
+    except Exception as e:
+        st.error(f"❌ Error saving approval to DB: {e}")
+
+    return filename
+
 
 def load_quota_view():
     result = supabase.table("quota_view").select("*").execute()
