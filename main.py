@@ -248,7 +248,10 @@ if delivery_file:
     uploaded_df['exporter'] = exporter_name
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
 
-    unknown_farmers = uploaded_df[~uploaded_df['farmer_id'].isin(farmers_df['farmer_id'])]['farmer_id'].unique()
+    unknown_farmers = uploaded_df[
+    ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
+]['farmer_id'].unique()
+
 
     if unknown_farmers.size > 0:
         st.error("The following farmers are NOT in the database:")
