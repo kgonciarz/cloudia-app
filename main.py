@@ -39,10 +39,7 @@ def t(key):
             "English": "Download Approval PDF",
             "Français": "Télécharger le certificat PDF"
         },
-        "quota_ok": {
-            "English": "✅ All farmers are within their quotas.",
-            "Français": "✅ Tous les producteurs respectent leurs quotas."
-        },
+
         "missing_columns": {
             "English": "Missing required columns",
             "Français": "Colonnes requises manquantes"
