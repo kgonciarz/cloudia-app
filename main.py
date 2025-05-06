@@ -161,13 +161,17 @@ def load_quota_view():
     return pd.DataFrame(result.data)
 
 # --- UI Layout ---
-col1, col2 = st.columns(2)
-with col1:
-    st.image(Image.open(LOGO_PATH), width=150)
-with col2:
-    st.image(Image.open(LOGO_COCOA), width=300)
+st.markdown(
+    f"""
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="data:image/png;base64,{Image.open(LOGO_PATH).tobytes().hex()}" alt="CloudIA Logo" style="height:80px; margin-right: 40px;" />
+        <img src="data:image/jpeg;base64,{Image.open(LOGO_COCOA).tobytes().hex()}" alt="Cocoa Source Logo" style="height:80px;" />
+        <h2 style="margin-top: 20px; color: #1c2b4a;">CloudIA – Farmer Quota Verification System</h2>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-st.title("CloudIA - Farmer Quota Verification System")
 
 # --- Główna logika ---
 delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx"])
