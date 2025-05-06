@@ -90,9 +90,15 @@ def t(key):
         "missing_exporter_column": {
             "English": "❌ Missing 'exporter' column in the Excel file.",
             "Français": "❌ La colonne 'exporter' est manquante dans le fichier Excel."
+        },
+        "lot_too_low": {
+            "English": "Too low",
+            "Français": "Trop faible"
+        },
+        "lot_within_range": {
+            "English": "Within range",
+            "Français": "Dans la plage autorisée"
         }
-
-
 
     }
     return translations.get(key, {}).get(lang, key)
@@ -407,11 +413,12 @@ if delivery_file:
     lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
 
     def check_lot_status(weight_in_kg):
-        weight_in_mt = weight_in_kg / 1000
-        if weight_in_mt < 21:
-            return "Too low"
-        else:
-            return "Within range"
+            weight_in_mt = weight_in_kg / 1000
+            if weight_in_mt < 21:
+                return t("lot_too_low")
+            else:
+                return t("lot_within_range")
+
 
     lot_status = lot_totals.apply(check_lot_status)
     lot_status_ok = lot_status == "Within range"
