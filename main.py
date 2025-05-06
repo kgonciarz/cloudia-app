@@ -9,6 +9,44 @@ import re
 import time
 import base64
 
+# Language switcher
+lang = st.sidebar.radio("🌐 Language / Langue", ["English", "Français"])
+
+# Translation dictionary
+def t(key):
+    translations = {
+        "upload_title": {
+            "English": "📤 Drag and drop a verification file here",
+            "Français": "📤 Glissez-déposez un fichier de vérification ici"
+        },
+        "or": {
+            "English": "or",
+            "Français": "ou"
+        },
+        "file_format_caption": {
+            "English": "✅ Format: .xlsx | Max size: 200MB",
+            "Français": "✅ Format : .xlsx | Taille max : 200 Mo"
+        },
+        "title": {
+            "English": "☁️ CloudIA – Farmer Quota Verification System",
+            "Français": "☁️ CloudIA – Système de Vérification des Quotas"
+        },
+        "generate_pdf": {
+            "English": "Generate Approval PDF",
+            "Français": "Générer le certificat PDF"
+        },
+        "download_pdf": {
+            "English": "Download Approval PDF",
+            "Français": "Télécharger le certificat PDF"
+        },
+        "quota_ok": {
+            "English": "✅ All farmers are within their quotas.",
+            "Français": "✅ Tous les producteurs respectent leurs quotas."
+        }
+    }
+    return translations.get(key, {}).get(lang, key)
+
+
 st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 
 st.markdown("""
