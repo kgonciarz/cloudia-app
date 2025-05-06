@@ -182,64 +182,46 @@ if delivery_file:
         st.error("Missing 'exporter' column in the Excel file.")
         st.stop()
 
-    exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
+exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
 
-    
+expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
+                    'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
+missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
+if missing_columns:
+    st.error(f"Missing columns: {', '.join(missing_columns)}")
+    st.stop()
+
+uploaded_df.rename(columns={
+    'export lot n°/connaissement': 'export_lot',
+    'net weight (kg)': 'net_weight_kg',
+    'date of purchase from cooperative': 'purchase_date'
+}, inplace=True)
+
+uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+
+uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
+
+unknown_farmers = uploaded_df[
+    ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
+]['farmer_id'].unique()
+
+if unknown_farmers.size > 0:
+    st.error("The following farmers are NOT in the database:")
+    st.write(list(unknown_farmers))
+    st.stop()
+
+# --- Process each exporter separately ---
 for exporter_name in exporter_names:
-    exporter_df = uploaded_df[uploaded_df['exporter'] == exporter_name]
+    exporter_df = uploaded_df[uploaded_df['exporter'].str.strip() == exporter_name]
+    exporter_df['exporter'] = exporter_name  # re-assign clean name
 
     lot_numbers = exporter_df['export_lot'].unique()
     for lot in lot_numbers:
         farmer_ids_for_lot = exporter_df[exporter_df['export_lot'] == lot]['farmer_id'].unique().tolist()
         delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
-    inserted_ok = save_delivery_to_supabase(exporter_df)
-    if not inserted_ok:
-        st.stop()
+    # dalej: inserted_ok = ..., quota_df = ..., PDF...
 
-    time.sleep(1)
-    quota_df = load_quota_view()
-    quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
-    exporter_df['farmer_id'] = exporter_df['farmer_id'].astype(str).str.strip().str.lower()
-
-    quota_df = quota_df[quota_df['farmer_id'].isin(exporter_df['farmer_id'])]
-
-    quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
-
-    # dalej sprawdzanie lotów, generowanie PDF itd. dla danego eksportera...
-
-
-    expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
-                        'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
-    missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
-    if missing_columns:
-        st.error(f"Missing columns: {', '.join(missing_columns)}")
-        st.stop()
-
-    uploaded_df.rename(columns={
-        'export lot n°/connaissement': 'export_lot',
-        'net weight (kg)': 'net_weight_kg',
-        'date of purchase from cooperative': 'purchase_date'
-    }, inplace=True)
-
-    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
-    uploaded_df['exporter'] = exporter_name
-
-    uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
-
-    unknown_farmers = uploaded_df[
-        ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
-    ]['farmer_id'].unique()
-
-    if unknown_farmers.size > 0:
-        st.error("The following farmers are NOT in the database:")
-        st.write(list(unknown_farmers))
-        st.stop()
-
-    lot_numbers = uploaded_df['export_lot'].unique()
-    for lot in lot_numbers:
-        farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique().tolist()
-        delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
 # ... (wszystko przed tym zostaje bez zmian)
 
