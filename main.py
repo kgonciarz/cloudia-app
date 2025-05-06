@@ -193,8 +193,8 @@ logo_2 = image_to_base64(LOGO_COCOA)     # np. cocoasourcelogo.jpg
 
 st.markdown(f"""
     <div style="display: flex; justify-content: center; align-items: center; gap: 80px; margin-bottom: 30px; margin-top: 10px;">
-        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 120px;">
-        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 100px;">
+        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 150px;">
+        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 200px;">
     </div>
 
     <h2 style='text-align: center; color: #1c2b4a; font-size: 30px;'>
