@@ -58,8 +58,19 @@ def t(key):
         "approval_save_error": {
             "English": "❌ Error saving approval to the database",
             "Français": "❌ Erreur lors de l'enregistrement de l'approbation dans la base de données"
+        },
+        "download_pdf": {
+            "English": "Download Approval PDF",
+            "Français": "Télécharger le certificat PDF"
+        },
+        "file_approved": {
+            "English": "✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.",
+            "Français": "✅ Fichier approuvé. Tous les producteurs sont valides, les quotas sont respectés et les kg par lot sont dans la plage autorisée."
+        },
+        "generate_pdf": {
+            "English": "Generate Approval PDF",
+            "Français": "Générer le certificat PDF"
         }
-
 
 
     }
@@ -408,8 +419,8 @@ if delivery_file:
     total_kg = int(final_lot_totals.sum())
 
     if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
-        st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-        if st.button("Generate Approval PDF"):
+        st.success(t("file_approved"))
+        if st.button(t("generate_pdf")):
             total_kg = int(final_lot_totals.sum())
             pdf_file = generate_pdf_confirmation(
                 lot_numbers=final_lot_totals.index.tolist(),
@@ -421,7 +432,7 @@ if delivery_file:
                 logo_cocoa=LOGO_COCOA
             )
             with open(pdf_file, "rb") as f:
-                st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
+                st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
     else:
         rollback_delivery(uploaded_df)
 
