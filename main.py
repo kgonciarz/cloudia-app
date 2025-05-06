@@ -212,14 +212,14 @@ if delivery_file:
 
 
 # --- Process each exporter separately ---
-for exporter_name in exporter_names:
-    exporter_df = uploaded_df[uploaded_df['exporter'].str.strip() == exporter_name]
-    exporter_df['exporter'] = exporter_name  # re-assign clean name
+    for exporter_name in exporter_names:
+        exporter_df = uploaded_df[uploaded_df['exporter'].str.strip() == exporter_name]
+        exporter_df['exporter'] = exporter_name  # re-assign clean name
 
-    lot_numbers = exporter_df['export_lot'].unique()
-    for lot in lot_numbers:
-        farmer_ids_for_lot = exporter_df[exporter_df['export_lot'] == lot]['farmer_id'].unique().tolist()
-        delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+        lot_numbers = exporter_df['export_lot'].unique()
+        for lot in lot_numbers:
+            farmer_ids_for_lot = exporter_df[exporter_df['export_lot'] == lot]['farmer_id'].unique().tolist()
+            delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
     # dalej: inserted_ok = ..., quota_df = ..., PDF...
 
