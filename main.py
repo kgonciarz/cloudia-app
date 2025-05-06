@@ -42,7 +42,26 @@ def t(key):
         "quota_ok": {
             "English": "✅ All farmers are within their quotas.",
             "Français": "✅ Tous les producteurs respectent leurs quotas."
+        },
+        "missing_columns": {
+            "English": "Missing required columns",
+            "Français": "Colonnes requises manquantes"
+        },
+        "insert_success": {
+            "English": "✅ Data successfully inserted! {} new records added.",
+            "Français": "✅ Données insérées avec succès ! {} nouveaux enregistrements ajoutés."
+        },
+        "insert_error": {
+            "English": "❌ Error while inserting into traceability table",
+            "Français": "❌ Erreur lors de l'insertion dans la table de traçabilité"
+        },
+        "approval_save_error": {
+            "English": "❌ Error saving approval to the database",
+            "Français": "❌ Erreur lors de l'enregistrement de l'approbation dans la base de données"
         }
+
+
+
     }
     return translations.get(key, {}).get(lang, key)
 
@@ -131,7 +150,7 @@ def save_delivery_to_supabase(df):
     required_columns = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
-        st.error(f"Missing required columns: {', '.join(missing_columns)}")
+        st.error(f"{t('missing_columns')}: {', '.join(missing_columns)}")
         return False
 
     df_cleaned = df.copy()
@@ -149,10 +168,10 @@ def save_delivery_to_supabase(df):
 
     try:
         supabase.table("traceability").insert(data).execute()
-        st.success(f"✅ Data successfully inserted! {len(data)} new records added.")
+        st.success(t("insert_success").format(len(data)))
         return True
     except Exception as e:
-        st.error(f"❌ Error while inserting into traceability table: {e}")
+        st.error(f"{t('insert_error')}: {e}")
         return False
 def refresh_quota_view():
     try:
@@ -212,7 +231,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     try:
         supabase.table("approvals").insert(data).execute()
     except Exception as e:
-        st.error(f"❌ Error saving approval to DB: {e}")
+        st.error(f"{t('approval_save_error')}: {e}")
 
     return filename
 
