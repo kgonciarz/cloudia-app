@@ -8,7 +8,7 @@ from supabase import create_client, Client
 import re
 import time
 import base64
-
+st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 # Language switcher
 lang = st.sidebar.radio("🌐 Language / Langue", ["English", "Français"])
 
@@ -66,7 +66,7 @@ def t(key):
     return translations.get(key, {}).get(lang, key)
 
 
-st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
+
 
 st.markdown("""
     <style>
