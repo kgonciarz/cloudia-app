@@ -305,7 +305,7 @@ if delivery_file:
     final_exporter_names = ", ".join(sorted(set(uploaded_df['exporter'].dropna().astype(str).str.strip())))
     total_kg = int(final_lot_totals.sum())
 
-    if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
+if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
     st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
     if st.button("Generate Approval PDF"):
         total_kg = int(final_lot_totals.sum())
