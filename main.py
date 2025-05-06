@@ -189,7 +189,12 @@ with col1:
 with col2:
     st.image(Image.open(LOGO_COCOA), width=300)
 
-st.title("CloudIA - Farmer Quota Verification System")
+st.markdown("""
+<h2 style='text-align: center; color: #1c2b4a; margin-top: 10px;'>
+    ☁️ CloudIA – Farmer Quota Verification System
+</h2>
+""", unsafe_allow_html=True)
+
 
 # --- Główna logika ---
 st.markdown("""
