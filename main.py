@@ -39,11 +39,6 @@ def t(key):
             "English": "Download Approval PDF",
             "Français": "Télécharger le certificat PDF"
         },
-
-        "missing_columns": {
-            "English": "Missing required columns",
-            "Français": "Colonnes requises manquantes"
-        },
         "insert_success": {
             "English": "✅ Data successfully inserted! {} new records added.",
             "Français": "✅ Données insérées avec succès ! {} nouveaux enregistrements ajoutés."
@@ -56,17 +51,9 @@ def t(key):
             "English": "❌ Error saving approval to the database",
             "Français": "❌ Erreur lors de l'enregistrement de l'approbation dans la base de données"
         },
-        "download_pdf": {
-            "English": "Download Approval PDF",
-            "Français": "Télécharger le certificat PDF"
-        },
         "file_approved": {
             "English": "✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.",
             "Français": "✅ Fichier approuvé. Tous les producteurs sont valides, les quotas sont respectés et les kg par lot sont dans la plage autorisée."
-        },
-        "generate_pdf": {
-            "English": "Generate Approval PDF",
-            "Français": "Générer le certificat PDF"
         },
         "rollback_error": {
             "English": "❌ Uploaded delivery has been rolled back due to validation errors. PDF cannot be generated.",
@@ -103,23 +90,8 @@ def t(key):
         "missing_exporter_column": {
             "English": "❌ Missing 'exporter' column in the Excel file.",
             "Français": "❌ La colonne 'exporter' est manquante dans le fichier Excel."
-        },
-        "file_format_caption": {
-            "English": "✅ Format: .xlsx | Max size: 200MB",
-            "Français": "✅ Format : .xlsx | Taille max : 200 Mo"
-        },
-        "upload_title": {
-            "English": "📤 Drag and drop a verification file here",
-            "Français": "📤 Glissez-déposez un fichier de vérification ici"
-        },
-        "or": {
-            "English": "or",
-            "Français": "ou"
-        },
-        "title": {
-            "English": "☁️ CloudIA – Farmer Quota Verification System",
-            "Français": "☁️ CloudIA – Système de Vérification des Quotas des Producteurs"
         }
+
 
 
     }
