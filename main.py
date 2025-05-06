@@ -7,6 +7,7 @@ from PIL import Image
 from supabase import create_client, Client
 import re
 import time
+import base64
 
 st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 
@@ -183,12 +184,19 @@ def load_quota_view():
     return pd.DataFrame(result.data)
 
 # --- UI Layout ---
-col1, col2 = st.columns([1, 1])
-with col1:
-    st.image(LOGO_PATH, use_column_width="auto")
-with col2:
-    st.image(LOGO_COCOA, use_column_width="auto")
+def image_to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
+logo_1 = image_to_base64(LOGO_PATH)
+logo_2 = image_to_base64(LOGO_COCOA)
+
+st.markdown(f"""
+    <div style="display: flex; justify-content: center; align-items: center; gap: 60px; margin-bottom: 20px;">
+        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 100px;">
+        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 80px;">
+    </div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <h2 style='text-align: center; color: #1c2b4a; margin-top: 10px;'>
