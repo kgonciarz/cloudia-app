@@ -184,31 +184,32 @@ if delivery_file:
 
     exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
 
-expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
-                    'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
-missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
-if missing_columns:
-    st.error(f"Missing columns: {', '.join(missing_columns)}")
-    st.stop()
+    expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
+                        'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
+    missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
+    if missing_columns:
+        st.error(f"Missing columns: {', '.join(missing_columns)}")
+        st.stop()
 
-uploaded_df.rename(columns={
-    'export lot n°/connaissement': 'export_lot',
-    'net weight (kg)': 'net_weight_kg',
-    'date of purchase from cooperative': 'purchase_date'
-}, inplace=True)
+    uploaded_df.rename(columns={
+        'export lot n°/connaissement': 'export_lot',
+        'net weight (kg)': 'net_weight_kg',
+        'date of purchase from cooperative': 'purchase_date'
+    }, inplace=True)
 
-uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+    uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
 
-uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
+    uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
 
-unknown_farmers = uploaded_df[
-    ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
-]['farmer_id'].unique()
+    unknown_farmers = uploaded_df[
+        ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
+    ]['farmer_id'].unique()
 
-if unknown_farmers.size > 0:
-    st.error("The following farmers are NOT in the database:")
-    st.write(list(unknown_farmers))
-    st.stop()
+    if unknown_farmers.size > 0:
+        st.error("The following farmers are NOT in the database:")
+        st.write(list(unknown_farmers))
+        st.stop()
+
 
 # --- Process each exporter separately ---
 for exporter_name in exporter_names:
