@@ -8,6 +8,28 @@ from supabase import create_client, Client
 import re
 import time
 
+st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
+
+st.markdown("""
+    <style>
+    .stButton>button {
+        color: white;
+        background-color: #1c2b4a;
+        border-radius: 8px;
+        padding: 0.5em 2em;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #36577c;
+        color: white;
+    }
+    .stMarkdown h3 {
+        color: #1c2b4a;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 QUOTA_PER_HA = 800
 LOGO_PATH = "cloudia_logo.png"
 LOGO_COCOA = "cocoasourcelogo.jpg"
