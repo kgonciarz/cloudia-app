@@ -300,21 +300,26 @@ if delivery_file:
             farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique().tolist()
             delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
         st.error("❌ Uploaded delivery has been rolled back due to validation errors. PDF cannot be generated.")
+    
+    final_lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
+    final_exporter_names = ", ".join(sorted(set(uploaded_df['exporter'].dropna().astype(str).str.strip())))
+    total_kg = int(final_lot_totals.sum())
 
     if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
-        st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
-        if st.button("Generate Approval PDF"):
-            total_kg = int(lot_totals.sum())
-            pdf_file = generate_pdf_confirmation(
-                lot_numbers=lot_totals.index.tolist(),
-                exporter_name=exporter_name,
-                farmer_count=uploaded_df['farmer_id'].nunique(),
-                total_kg=total_kg,
-                lot_kg_summary=lot_totals.to_dict(),
-                logo_path=LOGO_PATH,
-                logo_cocoa=LOGO_COCOA
-            )
-            with open(pdf_file, "rb") as f:
-                st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
-    else:
-        rollback_delivery(uploaded_df)
+    st.success("✅ File approved. All farmers valid, quotas OK, and delivered kg per lot within allowed range.")
+    if st.button("Generate Approval PDF"):
+        total_kg = int(final_lot_totals.sum())
+        pdf_file = generate_pdf_confirmation(
+            lot_numbers=final_lot_totals.index.tolist(),
+            exporter_name=final_exporter_names,
+            farmer_count=uploaded_df['farmer_id'].nunique(),
+            total_kg=total_kg,
+            lot_kg_summary=final_lot_totals.to_dict(),
+            logo_path=LOGO_PATH,
+            logo_cocoa=LOGO_COCOA
+        )
+        with open(pdf_file, "rb") as f:
+            st.download_button("Download Approval PDF", data=f, file_name=pdf_file, mime="application/pdf")
+else:
+    rollback_delivery(uploaded_df)
+
