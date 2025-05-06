@@ -421,7 +421,8 @@ if delivery_file:
 
 
     lot_status = lot_totals.apply(check_lot_status)
-    lot_status_ok = lot_status == "Within range"
+    lot_status_ok = lot_status == t("lot_within_range")
+
 
     lot_status_info = pd.DataFrame({
         'export_lot': lot_totals.index,
