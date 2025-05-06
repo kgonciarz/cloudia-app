@@ -70,6 +70,58 @@ def t(key):
         "generate_pdf": {
             "English": "Generate Approval PDF",
             "Français": "Générer le certificat PDF"
+        },
+        "rollback_error": {
+            "English": "❌ Uploaded delivery has been rolled back due to validation errors. PDF cannot be generated.",
+            "Français": "❌ La livraison téléversée a été annulée en raison d'erreurs de validation. Le certificat PDF ne peut pas être généré."
+        },
+        "lot_status_out_of_range": {
+            "English": "### Lot Status Overview - Out of Range",
+            "Français": "### Aperçu de l'état des lots - Hors plage autorisée"
+        },
+        "quota_warning_count": {
+            "English": "⚠️ {} farmers in the uploaded file have quota warnings or exceeded limits.",
+            "Français": "⚠️ {} producteurs du fichier ont des avertissements de quota ou ont dépassé les limites."
+        },
+        "quota_ok": {
+            "English": "✅ All farmers in the uploaded file are within their assigned quotas.",
+            "Français": "✅ Tous les producteurs du fichier respectent leurs quotas assignés."
+        },
+        "quota_overview_title": {
+            "English": "### Quota Overview (Only Warnings and Exceeded)",
+            "Français": "### Aperçu des quotas (avertissements et dépassements uniquement)"
+        },
+        "missing_farmer_id_column": {
+            "English": "❌ quota_view does not contain 'farmer_id'. Columns returned: {}",
+            "Français": "❌ La vue quota_view ne contient pas 'farmer_id'. Colonnes retournées : {}"
+        },
+        "unknown_farmers_error": {
+            "English": "❌ The following farmers are NOT in the database:",
+            "Français": "❌ Les producteurs suivants ne sont PAS présents dans la base de données :"
+        },
+        "missing_columns": {
+            "English": "❌ Missing columns: {}",
+            "Français": "❌ Colonnes manquantes : {}"
+        },
+        "missing_exporter_column": {
+            "English": "❌ Missing 'exporter' column in the Excel file.",
+            "Français": "❌ La colonne 'exporter' est manquante dans le fichier Excel."
+        },
+        "file_format_caption": {
+            "English": "✅ Format: .xlsx | Max size: 200MB",
+            "Français": "✅ Format : .xlsx | Taille max : 200 Mo"
+        },
+        "upload_title": {
+            "English": "📤 Drag and drop a verification file here",
+            "Français": "📤 Glissez-déposez un fichier de vérification ici"
+        },
+        "or": {
+            "English": "or",
+            "Français": "ou"
+        },
+        "title": {
+            "English": "☁️ CloudIA – Farmer Quota Verification System",
+            "Français": "☁️ CloudIA – Système de Vérification des Quotas des Producteurs"
         }
 
 
@@ -266,23 +318,22 @@ st.markdown(f"""
     </div>
 
     <h2 style='text-align: center; color: #1c2b4a; font-size: 30px;'>
-        ☁️ CloudIA – Farmer Quota Verification System
+        {t('title')}
     </h2>
 """, unsafe_allow_html=True)
 
 
-
-
 # --- Główna logika ---
-st.markdown("""
+st.markdown(f"""
 <div style='text-align: center; padding: 20px; border-radius: 12px; background-color: #f4f7fa; border: 1px solid #dbe3ea; margin-top: 20px;'>
-    <h3>📤 Drag and drop a verification file here</h3>
-    <p><em>or</em></p>
+    <h3>{t('upload_title')}</h3>
+    <p><em>{t('or')}</em></p>
 </div>
 """, unsafe_allow_html=True)
 
+
 delivery_file = st.file_uploader("", type=["xlsx"], label_visibility="collapsed")
-st.caption("✅ Format: .xlsx | Max size: 200MB")
+st.caption(t("file_format_caption"))
 
 farmers_df = load_all_farmers()
 
@@ -292,7 +343,7 @@ if delivery_file:
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
 
     if 'exporter' not in uploaded_df.columns:
-        st.error("Missing 'exporter' column in the Excel file.")
+        st.error(t("missing_exporter_column"))
         st.stop()
 
     exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
@@ -301,7 +352,7 @@ if delivery_file:
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
     missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
     if missing_columns:
-        st.error(f"Missing columns: {', '.join(missing_columns)}")
+        st.error(t("missing_columns").format(', '.join(missing_columns)))
         st.stop()
 
     uploaded_df.rename(columns={
@@ -319,7 +370,7 @@ if delivery_file:
     ]['farmer_id'].unique()
 
     if unknown_farmers.size > 0:
-        st.error("The following farmers are NOT in the database:")
+        st.error(t("unknown_farmers_error"))
         st.write(list(unknown_farmers))
         st.stop()
 
@@ -348,7 +399,7 @@ if delivery_file:
 
     # Diagnoza – sprawdź czy kolumna farmer_id istnieje
     if 'farmer_id' not in quota_df.columns:
-        st.error("❌ quota_view does not contain 'farmer_id'. Columns returned: " + str(list(quota_df.columns)))
+        st.error(t("missing_farmer_id_column").format(list(quota_df.columns)))
         st.stop()
 
     # Czyszczenie i filtrowanie
@@ -360,7 +411,7 @@ if delivery_file:
 
 
     if not quota_filtered.empty:
-        st.write("### Quota Overview (Only Warnings and Exceeded)")
+        st.write(t("quota_overview_title"))
 
         def highlight_status(val):
             if val == 'EXCEEDED':
@@ -378,9 +429,9 @@ if delivery_file:
         })
 
         st.dataframe(styled_quota, use_container_width=True)
-        st.warning(f"⚠️ {len(quota_filtered)} farmers in the uploaded file have quota warnings or exceeded limits.")
+        st.warning(t("quota_warning_count").format(len(quota_filtered)))
     else:
-        st.success("✅ All farmers in the uploaded file are within their assigned quotas.")
+        st.success(t("quota_ok"))
 
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = 'EXCEEDED' in quota_filtered['quota_status'].values
@@ -403,7 +454,7 @@ if delivery_file:
     })
 
     if not lot_status_ok.all():
-        st.write("### Lot Status Overview - Out of Range")
+        st.write(t("lot_status_out_of_range"))
         st.dataframe(lot_status_info[~lot_status_ok])
 
     def rollback_delivery(uploaded_df):
@@ -412,7 +463,7 @@ if delivery_file:
         for lot in lot_numbers:
             farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique().tolist()
             delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
-        st.error("❌ Uploaded delivery has been rolled back due to validation errors. PDF cannot be generated.")
+        st.error(t("rollback_error"))
     
     final_lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
     final_exporter_names = ", ".join(sorted(set(uploaded_df['exporter'].dropna().astype(str).str.strip())))
