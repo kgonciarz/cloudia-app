@@ -98,7 +98,12 @@ def t(key):
         "lot_within_range": {
             "English": "Within range",
             "Français": "Dans la plage autorisée"
+        },
+        "saving": {
+            "English": "💾 Saving data...",
+            "Français": "💾 Sauvegarde des données..."
         }
+
 
     }
     return translations.get(key, {}).get(lang, key)
@@ -205,7 +210,8 @@ def save_delivery_to_supabase(df):
     data = df_cleaned.to_dict(orient="records")
 
     try:
-        supabase.table("traceability").insert(data).execute()
+        with st.spinner(t("saving")):
+            supabase.table("traceability").insert(data).execute()
         st.success(t("insert_success").format(len(data)))
         return True
     except Exception as e:
