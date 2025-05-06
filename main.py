@@ -170,7 +170,16 @@ with col2:
 st.title("CloudIA - Farmer Quota Verification System")
 
 # --- Główna logika ---
-delivery_file = st.sidebar.file_uploader("Upload Delivery Template", type=["xlsx"])
+st.markdown("""
+<div style='text-align: center; padding: 20px; border-radius: 12px; background-color: #f4f7fa; border: 1px solid #dbe3ea; margin-top: 20px;'>
+    <h3>📤 Drag and drop a verification file here</h3>
+    <p><em>or</em></p>
+</div>
+""", unsafe_allow_html=True)
+
+delivery_file = st.file_uploader("", type=["xlsx"], label_visibility="collapsed")
+st.caption("✅ Format: .xlsx | Max size: 200MB")
+
 farmers_df = load_all_farmers()
 
 if delivery_file:
