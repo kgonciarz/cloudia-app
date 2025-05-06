@@ -183,7 +183,31 @@ if delivery_file:
         st.stop()
 
     exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
-    exporter_name = ", ".join(exporter_names)
+
+    
+for exporter_name in exporter_names:
+    exporter_df = uploaded_df[uploaded_df['exporter'] == exporter_name]
+
+    lot_numbers = exporter_df['export_lot'].unique()
+    for lot in lot_numbers:
+        farmer_ids_for_lot = exporter_df[exporter_df['export_lot'] == lot]['farmer_id'].unique().tolist()
+        delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+
+    inserted_ok = save_delivery_to_supabase(exporter_df)
+    if not inserted_ok:
+        st.stop()
+
+    time.sleep(1)
+    quota_df = load_quota_view()
+    quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
+    exporter_df['farmer_id'] = exporter_df['farmer_id'].astype(str).str.strip().str.lower()
+
+    quota_df = quota_df[quota_df['farmer_id'].isin(exporter_df['farmer_id'])]
+
+    quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
+
+    # dalej sprawdzanie lotów, generowanie PDF itd. dla danego eksportera...
+
 
     expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
                         'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
