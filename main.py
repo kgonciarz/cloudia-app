@@ -188,21 +188,21 @@ def image_to_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-logo_1 = image_to_base64(LOGO_PATH)
-logo_2 = image_to_base64(LOGO_COCOA)
+logo_1 = image_to_base64(LOGO_PATH)      # np. cloudia_logo.png
+logo_2 = image_to_base64(LOGO_COCOA)     # np. cocoasourcelogo.jpg
 
 st.markdown(f"""
-    <div style="display: flex; justify-content: center; align-items: center; gap: 60px; margin-bottom: 20px;">
-        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 100px;">
-        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 80px;">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 80px; margin-bottom: 30px; margin-top: 10px;">
+        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 120px;">
+        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 100px;">
     </div>
+
+    <h2 style='text-align: center; color: #1c2b4a; font-size: 30px;'>
+        ☁️ CloudIA – Farmer Quota Verification System
+    </h2>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<h2 style='text-align: center; color: #1c2b4a; margin-top: 10px;'>
-    ☁️ CloudIA – Farmer Quota Verification System
-</h2>
-""", unsafe_allow_html=True)
+
 
 
 # --- Główna logika ---
