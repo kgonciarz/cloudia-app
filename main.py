@@ -303,16 +303,27 @@ def image_to_base64(path):
 logo_1 = image_to_base64(LOGO_PATH)      # np. cloudia_logo.png
 logo_2 = image_to_base64(LOGO_COCOA)     # np. cocoasourcelogo.jpg
 
+# --- UI Layout ---
+def image_to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+logo_1 = image_to_base64(LOGO_PATH)
+logo_2 = image_to_base64(LOGO_COCOA)
+
 st.markdown(f"""
-    <div style="display: flex; justify-content: center; align-items: center; gap: 80px; margin-bottom: 30px; margin-top: 10px;">
-        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 150px;">
-        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 200px;">
+    <h1 style='text-align: center; font-size: 60px; color: #1c2b4a; margin-top: 10px; margin-bottom: 10px; letter-spacing: 6px;'>EXPORT</h1>
+
+    <div style="display: flex; justify-content: center; align-items: center; gap: 80px; margin-bottom: 30px;">
+        <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 140px;">
+        <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 180px;">
     </div>
 
     <h2 style='text-align: center; color: #1c2b4a; font-size: 30px;'>
         {t('title')}
     </h2>
 """, unsafe_allow_html=True)
+
 
 
 # --- Główna logika ---
