@@ -209,6 +209,16 @@ def save_delivery_to_supabase(df):
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
     data = df_cleaned.to_dict(orient="records")
 
+    # Sprawdź, czy są puste wymagane pola w jakimkolwiek wierszu
+    required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
+    missing_values = df_cleaned[required_fields].isnull().any(axis=1)
+
+    if missing_values.any():
+        st.error("❌ Some rows have missing values in required fields:")
+        st.dataframe(df_cleaned[missing_values])
+        return False
+
+
     try:
         with st.spinner(t("saving")):
             supabase.table("traceability").insert(data).execute()
