@@ -226,7 +226,7 @@ def refresh_quota_view():
 
 refresh_quota_view()
 
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa, cooperative_names):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
@@ -242,6 +242,7 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     pdf.multi_cell(0, 10, f"Generated on: {now}")
     pdf.multi_cell(0, 10, f"Exporter: {exporter_name}")
+    pdf.multi_cell(0, 10, f"Cooperatives: {', '.join(sorted(set(cooperative_names)))}")
     pdf.multi_cell(0, 10, f"Lots: {', '.join(str(l) for l in lot_numbers)}")
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
@@ -462,6 +463,7 @@ if delivery_file:
                 farmer_count=uploaded_df['farmer_id'].nunique(),
                 total_kg=total_kg,
                 lot_kg_summary=final_lot_totals.to_dict(),
+                cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
                 logo_path=LOGO_PATH,
                 logo_cocoa=LOGO_COCOA
             )
