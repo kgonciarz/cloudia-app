@@ -368,6 +368,12 @@ if delivery_file:
 
     uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
 
+    # ZABEZPIECZENIE: blokuj puste pliki
+    if uploaded_df.empty:
+        st.error("❌ The uploaded file is empty or contains no valid delivery records.")
+        st.stop()
+
+
     unknown_farmers = uploaded_df[
         ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
     ]['farmer_id'].unique()
