@@ -199,8 +199,14 @@ def save_delivery_to_supabase(df):
     df_cleaned = df.copy()
     df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
-    # Zamień 'N/A' (i inne puste warianty) w certification na None
-    df_cleaned['certification'] = df_cleaned['certification'].astype(str).replace(['N/A', 'n/a', 'na', 'NA', 'nan'], '')
+    # Najpierw zamień na string, żeby nie było błędów typu "float" -> np. nan
+    df_cleaned['certification'] = df_cleaned['certification'].astype(str)
+
+# Następnie wszystko, co wygląda na puste/N/A/nan, zamień na None
+    df_cleaned['certification'] = df_cleaned['certification'].replace(
+        ['N/A', 'n/a', 'na', 'NA', 'NaN', 'nan', '', 'None'], None
+    )
+
 
 
 
