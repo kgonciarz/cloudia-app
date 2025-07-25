@@ -9,6 +9,8 @@ import re
 import time
 import base64
 import math
+from office365.runtime.auth.client_credential import ClientCredential
+from office365.sharepoint.client_context import ClientContext
 st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 # Language switcher
 lang = st.sidebar.radio("🌐 Language / Langue", ["English", "Français"])
@@ -238,6 +240,52 @@ def save_delivery_to_supabase(df):
     except Exception as e:
         st.error(f"{t('insert_error')}: {e}")
         return False
+
+
+def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
+    try:
+        print("📡 START upload_file_to_sharepoint()")
+        print("🌐 site_url:", site_url)
+        print("📁 folder_path:", folder_path)
+        print("📄 file_name:", file_name)
+
+        ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
+        print("🔑 Auth OK")
+        web = ctx.web
+        ctx.load(web)
+        ctx.execute_query()
+        print("🌍 Web title:", web.properties.get("Title"))
+        print("📎 ServerRelativeUrl (web):", web.properties.get("ServerRelativeUrl"))
+
+
+        folder = ctx.web.get_folder_by_server_relative_url(folder_path)
+        print("📁 Got folder object:", folder)
+
+        ctx.load(folder)
+        ctx.execute_query()
+        print("✅ Folder exists:", folder.properties.get("ServerRelativeUrl", "NO URL"))
+
+        folder.upload_file(file_name, file_content).execute_query()
+        print("✅ File uploaded")
+
+        folders = web.folders
+        ctx.load(folders)
+        ctx.execute_query()
+        print("📂 Folders in site:")
+        print("✅ Full SharePoint URL:", site_url + "/" + folder_path)
+
+        for f in folders:
+            print(" -", f.properties["Name"])
+
+
+        return True
+    except Exception as e:
+        print("❌ Exception:", repr(e))  # <--- bardzo ważne!
+        return False
+
+
+
+    
 def refresh_quota_view():
     try:
         supabase.rpc("refresh_quota_view").execute()
@@ -247,16 +295,23 @@ def refresh_quota_view():
 
 refresh_quota_view()
 
-def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa, cooperative_names):
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa, cooperative_names, uploaded_file_content, delivery_file_name):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
     pdf.cell(200, 10, "Delivery Approval Certificate", ln=True, align="C")
 
     if logo_path:
-        pdf.image(logo_path, x=10, y=20, w=40)
+        try:
+            pdf.image(logo_path, x=10, y=20, w=40)
+        except Exception as e:
+            st.warning(f"Could not embed logo from {logo_path}: {e}")
     if logo_cocoa:
-        pdf.image(logo_cocoa, x=(210 - 110) / 2, y=20, w=110)
+        try:
+            pdf.image(logo_cocoa, x=(210 - 110) / 2, y=20, w=110)
+        except Exception as e:
+            st.warning(f"Could not embed logo from {logo_cocoa}: {e}")
+
 
     pdf.set_y(70)
     pdf.set_font("Arial", "", 12)
@@ -299,6 +354,41 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
         supabase.table("approvals").insert(data).execute()
     except Exception as e:
         st.error(f"{t('approval_save_error')}: {e}")
+
+    # --- SharePoint Upload with Error Handling ---
+    sharepoint_folder_path = st.secrets["sharepoint"]["library_name"]
+    excel_file_name = delivery_file_name # Use the passed file name
+
+    try:
+        # Retrieve SharePoint credentials from Streamlit secrets
+        sharepoint_site_url = st.secrets["sharepoint"]["site_url"]
+        sharepoint_client_id = st.secrets["sharepoint"]["client_id"]
+        sharepoint_client_secret = st.secrets["sharepoint"]["client_secret"]
+
+        # Call the function to upload the file to SharePoint
+        upload_success = upload_file_to_sharepoint(
+            site_url=sharepoint_site_url,
+            client_id=sharepoint_client_id,
+            client_secret=sharepoint_client_secret,
+            folder_path=sharepoint_folder_path,
+            file_name=excel_file_name,
+            file_content=uploaded_file_content
+        )
+
+        # Display success or error message based on upload result
+        if upload_success:
+            st.success(f"✅ Excel file '{excel_file_name}' successfully uploaded to SharePoint.")
+        else:
+            # upload_file_to_sharepoint already prints the error to console,
+            # so we display a generic error message in the app.
+            st.error(f"❌ Failed to upload Excel file '{excel_file_name}' to SharePoint. See logs for details.")
+
+    except KeyError as e:
+        st.error(f"❌ SharePoint credentials not found in Streamlit secrets: {e}. Make sure 'sharepoint.site_url', 'sharepoint.client_id', and 'sharepoint.client_secret' are set.")
+    # Handle any other unexpected errors during the preparation phase
+    except Exception as e:
+        st.error(f"❌ An unexpected error occurred during SharePoint upload preparation: {e}")
+
 
     return filename
 
@@ -347,12 +437,14 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-delivery_file = st.file_uploader("", type=["xlsx"], label_visibility="collapsed")
+delivery_file = st.file_uploader(" ", type=["xlsx"], label_visibility="collapsed")
 st.caption(t("file_format_caption"))
 
 farmers_df = load_all_farmers()
 
 if delivery_file:
+    uploaded_excel_file = delivery_file # Store the file object
+    uploaded_df = pd.read_excel(uploaded_excel_file) # Read from the file object
     uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
     uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
@@ -503,7 +595,9 @@ if delivery_file:
                 lot_kg_summary=final_lot_totals.to_dict(),
                 cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
                 logo_path=LOGO_PATH,
-                logo_cocoa=LOGO_COCOA
+                logo_cocoa=LOGO_COCOA,
+                uploaded_file_content=uploaded_excel_file.getvalue(), # Pass the file content
+                delivery_file_name=uploaded_excel_file.name # Pass the file name
             )
             with open(pdf_file, "rb") as f:
                 st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
