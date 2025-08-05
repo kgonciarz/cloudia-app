@@ -8,7 +8,7 @@ key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imht
 supabase: Client = create_client(url, key)
 
 # === Ścieżka do Excela ===
-excel_path = r"C:\Users\Klaudia Gonciarz\OneDrive - Cocoasource SA\Bureau\TOC.xlsx"
+excel_path = r"C:\Users\Klaudia Gonciarz\OneDrive - Cocoasource SA\Copy of ABOCFA.xlsx"
 
 # === Wczytaj dane ===
 df = pd.read_excel(excel_path)
