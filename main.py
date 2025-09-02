@@ -395,7 +395,42 @@ def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg
 
 def load_quota_view():
     result = supabase.table("quota_view").select("*").execute()
-    return pd.DataFrame(result.data)
+    df = pd.DataFrame(result.data)
+
+    # If empty, return a typed empty frame so downstream code has expected columns
+    if df.empty:
+        expected = [
+            "farmer_id",
+            "max_quota_kg",
+            "total_net_weight_kg",
+            "quota_used_pct",
+            "quota_status",
+        ]
+        return pd.DataFrame(columns=expected)
+
+    # normalize headers
+    df.columns = df.columns.str.strip().str.lower()
+
+    # map common aliases → farmer_id
+    alias_map = {
+        "farmerid": "farmer_id",
+        "farmer-id": "farmer_id",
+        "farmer_id_": "farmer_id",
+        "id_farmer": "farmer_id",
+        "idfarmer": "farmer_id",
+    }
+    for k, v in alias_map.items():
+        if k in df.columns and "farmer_id" not in df.columns:
+            df = df.rename(columns={k: v})
+            break
+
+    # Ensure required columns exist (create empty if the view lacks them)
+    for col in ["max_quota_kg", "total_net_weight_kg", "quota_used_pct", "quota_status"]:
+        if col not in df.columns:
+            df[col] = pd.Series(dtype="float64" if col != "quota_status" else "object")
+
+    return df
+
 
 # --- UI Layout ---
 def image_to_base64(path):
