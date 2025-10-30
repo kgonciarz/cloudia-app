@@ -213,48 +213,69 @@ def save_delivery_to_supabase(df):
 
 
 
-def excel_date_to_date(v):
-    """Converts Excel dates (numbers or strings) to ISO 'YYYY-MM-DD'.
-    If parsing fails, returns today's date."""
-    today_str = datetime.today().strftime("%Y-%m-%d")
 
-        # 1️⃣ Puste wartości → dzisiejsza data
-    if pd.isna(v) or v == "":
-        return today_str
+    # ✅ Updated Excel date converter INSIDE this function
+    def excel_date_to_date(excel_date):
+        """Converts Excel dates (numbers or strings) to ISO 'YYYY-MM-DD'.
+        If parsing fails, returns today's date."""
+        today_str = datetime.today().strftime("%Y-%m-%d")
 
-        # 2️⃣ Excel serial (np. 45210)
-    if isinstance(v, (int, float)):
-        try:
-            dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(v, unit="D")
-            return dt.strftime("%Y-%m-%d")
-        except Exception:
+        if pd.isna(excel_date) or excel_date == "":
             return today_str
 
-        # 3️⃣ Prawidłowy datetime
-    try:
-        if isinstance(v, (datetime, pd.Timestamp)):
-            return v.strftime("%Y-%m-%d")
-    except Exception:
-        pass
+        # Excel serial (number)
+        if isinstance(excel_date, (int, float)):
+            try:
+                return (
+                    pd.to_datetime("1899-12-30") + pd.to_timedelta(excel_date, unit="D")
+                ).strftime("%Y-%m-%d")
+            except Exception:
+                return today_str
 
-        # 4️⃣ String z formatem DD/MM/YYYY, DD-MM-YYYY, itp.
-    if isinstance(v, str):
-        v = v.strip()
-        try:
-            dt = pd.to_datetime(v, errors="coerce", dayfirst=True)
+        # datetime-like
+        if isinstance(excel_date, (datetime, pd.Timestamp)):
+            try:
+                return pd.to_datetime(excel_date).strftime("%Y-%m-%d")
+            except Exception:
+                return today_str
+
+        # strings: 18/09/2025, 18-09-2025, 18.09.2025, or serial as text
+        if isinstance(excel_date, str):
+            s = excel_date.strip()
+            dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
             if pd.notna(dt):
                 return dt.strftime("%Y-%m-%d")
-                # może to serial jako tekst
-            num = pd.to_numeric(v, errors="coerce")
+            num = pd.to_numeric(s, errors="coerce")
             if pd.notna(num):
                 dt = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
                 if pd.notna(dt):
                     return dt.strftime("%Y-%m-%d")
-        except Exception:
-            pass
 
-        # 5️⃣ Wszystko inne → dzisiejsza data
-    return today_str
+        return today_str
+
+    # ✅ same lines as before, now safe
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
+
+    data = df_cleaned.to_dict(orient="records")
+
+    # Check for missing required fields
+    required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
+    missing_values = df_cleaned[required_fields].isnull().any(axis=1)
+
+    if missing_values.any():
+        st.error("❌ Some rows have missing values in required fields:")
+        st.dataframe(df_cleaned[missing_values])
+        return False
+
+    try:
+        with st.spinner(t("saving")):
+            supabase.table("traceability").insert(data).execute()
+        st.success(t("insert_success").format(len(data)))
+        return True
+    except Exception as e:
+        st.error(f"{t('insert_error')}: {e}")
+        return False
 
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
