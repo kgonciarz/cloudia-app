@@ -213,40 +213,33 @@ def save_delivery_to_supabase(df):
 
 
 
-    def excel_date_to_date(v):
-        # puste -> dzisiejsza data (albo zwróć None i zablokuj insert)
-        if pd.isna(v):
-            return pd.Timestamp.today().normalize().strftime("%Y-%m-%d")
+    def excel_date_to_date(excel_date):
+        if isinstance(excel_date, (int, float)):
+            return (pd.to_datetime('1899-12-30') + pd.to_timedelta(excel_date, unit='D')).strftime('%Y-%m-%d')
+        return excel_date
 
-        # serial Excela (liczba)
-        if isinstance(v, (int, float)):
-            dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(v, unit="D")
-            return dt.strftime("%Y-%m-%d")
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
+    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
+    data = df_cleaned.to_dict(orient="records")
 
-        # datetime/np.datetime64
-        try:
-            if isinstance(v, (datetime, pd.Timestamp, pd.NaT.__class__)):
-                return pd.to_datetime(v).strftime("%Y-%m-%d")
-        except Exception:
-            pass
+    # Sprawdź, czy są puste wymagane pola w jakimkolwiek wierszu
+    required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
+    missing_values = df_cleaned[required_fields].isnull().any(axis=1)
 
-        # string -> spróbuj dayfirst (np. 18/09/2025, 18-09-2025, 18.09.2025)
-        if isinstance(v, str):
-            v = v.strip()
-            # najpierw spróbuj zwykłej daty
-            dt = pd.to_datetime(v, errors="coerce", dayfirst=True)
-            if pd.notna(dt):
-                return dt.strftime("%Y-%m-%d")
-            # może to liczba jako tekst (serial Excela)
-            num = pd.to_numeric(v, errors="coerce")
-            if pd.notna(num):
-                dt = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
-                if pd.notna(dt):
-                    return dt.strftime("%Y-%m-%d")
+    if missing_values.any():
+        st.error("❌ Some rows have missing values in required fields:")
+        st.dataframe(df_cleaned[missing_values])
+        return False
 
-        # jeśli dalej się nie da – zwróć None (zablokujemy insert i pokażemy wiersze)
-        return None
 
+    try:
+        with st.spinner(t("saving")):
+            supabase.table("traceability").insert(data).execute()
+        st.success(t("insert_success").format(len(data)))
+        return True
+    except Exception as e:
+        st.error(f"{t('insert_error')}: {e}")
+        return False
 
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
