@@ -336,6 +336,7 @@ def generate_pdf_confirmation(
     logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
     delivery_file_name, non_eudr_total_kg=0
 ):
+    import streamlit as st
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
