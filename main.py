@@ -674,5 +674,6 @@ if delivery_file:
             with open(pdf_file, "rb") as f:
                 st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
     else:
-        rollback_delivery(uploaded_df)
+        rollback_delivery_eudr(df_eudr)
+
 
