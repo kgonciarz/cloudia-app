@@ -213,33 +213,48 @@ def save_delivery_to_supabase(df):
 
 
 
-    def excel_date_to_date(excel_date):
-        if isinstance(excel_date, (int, float)):
-            return (pd.to_datetime('1899-12-30') + pd.to_timedelta(excel_date, unit='D')).strftime('%Y-%m-%d')
-        return excel_date
+    def excel_date_to_date(v):
+        """Converts Excel dates (numbers or strings) to ISO 'YYYY-MM-DD'.
+        If parsing fails, returns today's date."""
+        today_str = datetime.today().strftime("%Y-%m-%d")
 
-    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
-    df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
-    data = df_cleaned.to_dict(orient="records")
+        # 1️⃣ Puste wartości → dzisiejsza data
+        if pd.isna(v) or v == "":
+            return today_str
 
-    # Sprawdź, czy są puste wymagane pola w jakimkolwiek wierszu
-    required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
-    missing_values = df_cleaned[required_fields].isnull().any(axis=1)
+        # 2️⃣ Excel serial (np. 45210)
+        if isinstance(v, (int, float)):
+            try:
+                dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(v, unit="D")
+                return dt.strftime("%Y-%m-%d")
+            except Exception:
+                return today_str
 
-    if missing_values.any():
-        st.error("❌ Some rows have missing values in required fields:")
-        st.dataframe(df_cleaned[missing_values])
-        return False
+        # 3️⃣ Prawidłowy datetime
+        try:
+            if isinstance(v, (datetime, pd.Timestamp)):
+                return v.strftime("%Y-%m-%d")
+        except Exception:
+            pass
 
+        # 4️⃣ String z formatem DD/MM/YYYY, DD-MM-YYYY, itp.
+        if isinstance(v, str):
+            v = v.strip()
+            try:
+                dt = pd.to_datetime(v, errors="coerce", dayfirst=True)
+                if pd.notna(dt):
+                    return dt.strftime("%Y-%m-%d")
+                # może to serial jako tekst
+                num = pd.to_numeric(v, errors="coerce")
+                if pd.notna(num):
+                    dt = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
+                    if pd.notna(dt):
+                        return dt.strftime("%Y-%m-%d")
+            except Exception:
+                pass
 
-    try:
-        with st.spinner(t("saving")):
-            supabase.table("traceability").insert(data).execute()
-        st.success(t("insert_success").format(len(data)))
-        return True
-    except Exception as e:
-        st.error(f"{t('insert_error')}: {e}")
-        return False
+        # 5️⃣ Wszystko inne → dzisiejsza data
+        return today_str
 
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
