@@ -213,53 +213,16 @@ def save_delivery_to_supabase(df):
 
 
 
-
-    # ✅ Updated Excel date converter INSIDE this function
     def excel_date_to_date(excel_date):
-        """Converts Excel dates (numbers or strings) to ISO 'YYYY-MM-DD'.
-        If parsing fails, returns today's date."""
-        today_str = datetime.today().strftime("%Y-%m-%d")
-
-        if pd.isna(excel_date) or excel_date == "":
-            return today_str
-
-        # Excel serial (number)
         if isinstance(excel_date, (int, float)):
-            try:
-                return (
-                    pd.to_datetime("1899-12-30") + pd.to_timedelta(excel_date, unit="D")
-                ).strftime("%Y-%m-%d")
-            except Exception:
-                return today_str
+            return (pd.to_datetime('1899-12-30') + pd.to_timedelta(excel_date, unit='D')).strftime('%Y-%m-%d')
+        return excel_date
 
-        # datetime-like
-        if isinstance(excel_date, (datetime, pd.Timestamp)):
-            try:
-                return pd.to_datetime(excel_date).strftime("%Y-%m-%d")
-            except Exception:
-                return today_str
-
-        # strings: 18/09/2025, 18-09-2025, 18.09.2025, or serial as text
-        if isinstance(excel_date, str):
-            s = excel_date.strip()
-            dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
-            if pd.notna(dt):
-                return dt.strftime("%Y-%m-%d")
-            num = pd.to_numeric(s, errors="coerce")
-            if pd.notna(num):
-                dt = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
-                if pd.notna(dt):
-                    return dt.strftime("%Y-%m-%d")
-
-        return today_str
-
-    # ✅ same lines as before, now safe
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
-
     data = df_cleaned.to_dict(orient="records")
 
-    # Check for missing required fields
+    # Sprawdź, czy są puste wymagane pola w jakimkolwiek wierszu
     required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
     missing_values = df_cleaned[required_fields].isnull().any(axis=1)
 
@@ -267,6 +230,7 @@ def save_delivery_to_supabase(df):
         st.error("❌ Some rows have missing values in required fields:")
         st.dataframe(df_cleaned[missing_values])
         return False
+
 
     try:
         with st.spinner(t("saving")):
@@ -276,6 +240,7 @@ def save_delivery_to_supabase(df):
     except Exception as e:
         st.error(f"{t('insert_error')}: {e}")
         return False
+
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
     try:
@@ -315,25 +280,22 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
 
         return True
     except Exception as e:
-        print("❌ Exception:", repr(e)) 
+        print("❌ Exception:", repr(e))  # <--- bardzo ważne!
         return False
 
 
+
+    
 def refresh_quota_view():
     try:
-        supabase.rpc("refresh_quota_view", {}).execute()
+        supabase.rpc("refresh_quota_view").execute()
         print("✅ quota_view successfully refreshed.")
     except Exception as e:
         print("❌ Failed to refresh quota_view:", e)
 
 refresh_quota_view()
 
-def generate_pdf_confirmation(
-    lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary,
-    logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
-    delivery_file_name, non_eudr_total_kg=0
-):
-    import streamlit as st
+def generate_pdf_confirmation(lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary, logo_path, logo_cocoa, cooperative_names, uploaded_file_content, delivery_file_name):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
@@ -350,6 +312,7 @@ def generate_pdf_confirmation(
         except Exception as e:
             st.warning(f"Could not embed logo from {logo_cocoa}: {e}")
 
+
     pdf.set_y(70)
     pdf.set_font("Arial", "", 12)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -360,21 +323,11 @@ def generate_pdf_confirmation(
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
 
-    # Wkład Non-EUDR (tuż po Total Net Weight)
-    if non_eudr_total_kg and non_eudr_total_kg > 0:
-        pdf.multi_cell(
-            0, 10,
-            f"(Includes {round(non_eudr_total_kg/1000, 2)} MT marked as Non-EUDR - "
-            f"excluded from DB & quota checks)"
-        )
-
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Lot Summary", ln=True)
     pdf.set_font("Arial", "", 12)
-    # Zachowaj kolejność lot_numbers w PDF
-    for lot in lot_numbers:
-        kg = lot_kg_summary.get(lot, 0)
+    for lot, kg in lot_kg_summary.items():
         pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
 
     pdf.ln(5)
@@ -404,13 +357,15 @@ def generate_pdf_confirmation(
 
     # --- SharePoint Upload with Error Handling ---
     sharepoint_folder_path = st.secrets["sharepoint"]["library_name"]
-    excel_file_name = delivery_file_name  # Use the passed file name
+    excel_file_name = delivery_file_name # Use the passed file name
 
     try:
+        # Retrieve SharePoint credentials from Streamlit secrets
         sharepoint_site_url = st.secrets["sharepoint"]["site_url"]
         sharepoint_client_id = st.secrets["sharepoint"]["client_id"]
         sharepoint_client_secret = st.secrets["sharepoint"]["client_secret"]
 
+        # Call the function to upload the file to SharePoint
         upload_success = upload_file_to_sharepoint(
             site_url=sharepoint_site_url,
             client_id=sharepoint_client_id,
@@ -420,21 +375,27 @@ def generate_pdf_confirmation(
             file_content=uploaded_file_content
         )
 
+        # Display success or error message based on upload result
         if upload_success:
             st.success(f"✅ Excel file '{excel_file_name}' successfully uploaded to SharePoint.")
         else:
+            # upload_file_to_sharepoint already prints the error to console,
+            # so we display a generic error message in the app.
             st.error(f"❌ Failed to upload Excel file '{excel_file_name}' to SharePoint. See logs for details.")
 
     except KeyError as e:
-        st.error(f"❌ SharePoint credentials not found in Streamlit secrets: {e}.")
+        st.error(f"❌ SharePoint credentials not found in Streamlit secrets: {e}. Make sure 'sharepoint.site_url', 'sharepoint.client_id', and 'sharepoint.client_secret' are set.")
+    # Handle any other unexpected errors during the preparation phase
     except Exception as e:
         st.error(f"❌ An unexpected error occurred during SharePoint upload preparation: {e}")
+
 
     return filename
 
 
 def load_quota_view():
     result = supabase.table("quota_view").select("*").execute()
+    return pd.DataFrame(result.data)
     df = pd.DataFrame(result.data)
 
     # If empty, return a typed empty frame so downstream code has expected columns
@@ -470,6 +431,15 @@ def load_quota_view():
             df[col] = pd.Series(dtype="float64" if col != "quota_status" else "object")
 
     return df
+
+
+# --- UI Layout ---
+def image_to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+logo_1 = image_to_base64(LOGO_PATH)      # np. cloudia_logo.png
+logo_2 = image_to_base64(LOGO_COCOA)     # np. cocoasourcelogo.jpg
 
 # --- UI Layout ---
 def image_to_base64(path):
@@ -509,85 +479,59 @@ st.caption(t("file_format_caption"))
 farmers_df = load_all_farmers()
 
 if delivery_file:
-    # --- read & normalize ----------------------------------------------------
-    uploaded_excel_file = delivery_file  # keep original file object
-    uploaded_df = pd.read_excel(uploaded_excel_file)  # read once
+    uploaded_excel_file = delivery_file # Store the file object
+    uploaded_df = pd.read_excel(uploaded_excel_file) # Read from the file object
+    uploaded_df = pd.read_excel(delivery_file)
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+    uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
 
-    if 'farmer_id' in uploaded_df.columns:
-        uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
-
-    # basic schema checks
     if 'exporter' not in uploaded_df.columns:
         st.error(t("missing_exporter_column"))
         st.stop()
 
-    expected_columns = [
-        'cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
-        'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter'
-    ]
-    missing_columns = [c for c in expected_columns if c not in uploaded_df.columns]
+    exporter_names = uploaded_df['exporter'].dropna().astype(str).str.strip().unique()
+
+    expected_columns = ['cooperative name', 'export lot n°/connaissement', 'date of purchase from cooperative',
+                        'certification', 'farmer_id', 'farm_id', 'net weight (kg)', 'exporter']
+    missing_columns = [col for col in expected_columns if col not in uploaded_df.columns]
     if missing_columns:
         st.error(t("missing_columns").format(', '.join(missing_columns)))
         st.stop()
 
-    # rename + fill
     uploaded_df.rename(columns={
         'export lot n°/connaissement': 'export_lot',
         'net weight (kg)': 'net_weight_kg',
         'date of purchase from cooperative': 'purchase_date'
     }, inplace=True)
+
     uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
 
-    # de-dup
-    uploaded_df = uploaded_df.drop_duplicates(
-        subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
-        keep='last'
-    )
+    uploaded_df = uploaded_df.drop_duplicates(subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'], keep='last')
 
-    # empty file guard
+    # ZABEZPIECZENIE: blokuj puste pliki
     if uploaded_df.empty:
         st.error("❌ The uploaded file is empty or contains no valid delivery records.")
         st.stop()
 
-    # --- SPLIT: EUDR vs Non-EUDR --------------------------------------------
-    uploaded_df['certification'] = uploaded_df['certification'].astype(str)
-    non_eudr_mask = uploaded_df['certification'].str.contains(
-        r'\bnon[-_\s]*eudr\b', flags=re.IGNORECASE, na=False
-    )
 
-    df_noneudr = uploaded_df[non_eudr_mask].copy()     # NIE zapisujemy do DB, NIE walidujemy
-    df_eudr    = uploaded_df[~non_eudr_mask].copy()    # TYLKO to zapisujemy i walidujemy
+    unknown_farmers = uploaded_df[
+        ~uploaded_df['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
+    ]['farmer_id'].unique()
 
-    if not df_noneudr.empty:
-        st.info(
-            f"ℹ️ Excluding {len(df_noneudr)} Non-EUDR rows from database & quota checks. "
-            f"They will still count toward lot totals and appear in the PDF."
-        )
-
-    # --- unknown farmers check: ONLY on EUDR rows ----------------------------
-    unknown_farmers = []
-    if not df_eudr.empty:
-        unknown_farmers = df_eudr[
-            ~df_eudr['farmer_id'].str.lower().isin(farmers_df['farmer_id'].str.lower())
-        ]['farmer_id'].unique().tolist()
-
-    if unknown_farmers:
+    if unknown_farmers.size > 0:
         st.error(t("unknown_farmers_error"))
         st.write(list(unknown_farmers))
         st.stop()
 
-    # --- exporter names used later -------------------------------------------
-    # For DB + RPC operations use EUDR-only exporters
-    exporter_names = df_eudr['exporter'].dropna().astype(str).str.strip().unique() if not df_eudr.empty else []
 
 # --- Process each exporter separately ---
-# --- PRE-CLEAN: delete existing traceability ONLY for EUDR rows ------------
     for exporter_name in exporter_names:
-        exporter_df = df_eudr[df_eudr['exporter'].str.strip() == exporter_name].copy()
+        exporter_df = uploaded_df[uploaded_df['exporter'].str.strip() == exporter_name]
+        exporter_df['exporter'] = exporter_name  # re-assign clean name
+
         lot_numbers = exporter_df['export_lot'].unique()
         for lot in lot_numbers:
-            farmer_ids_for_lot = exporter_df.loc[exporter_df['export_lot'] == lot, 'farmer_id'].unique().tolist()
+            farmer_ids_for_lot = exporter_df[exporter_df['export_lot'] == lot]['farmer_id'].unique().tolist()
             delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
 
     # dalej: inserted_ok = ..., quota_df = ..., PDF...
@@ -595,29 +539,26 @@ if delivery_file:
 
 # ... (wszystko przed tym zostaje bez zmian)
 
-    inserted_ok = True
-    if not df_eudr.empty:
-        inserted_ok = save_delivery_to_supabase(df_eudr)
-
+    inserted_ok = save_delivery_to_supabase(uploaded_df)
     if not inserted_ok:
         st.stop()
-    # Diagnoza – sprawdź czy kolumna farmer_id istnieje
-    # --- QUOTA: load & filter only by EUDR farmer_ids --------------------------
-# --- QUOTA: load & filter by ALL farmer_ids from the uploaded file ---------
+
+    time.sleep(1)  # daj czas na propagację danych
     quota_df = load_quota_view()
 
+    # Diagnoza – sprawdź czy kolumna farmer_id istnieje
     if 'farmer_id' not in quota_df.columns:
         st.error(t("missing_farmer_id_column").format(list(quota_df.columns)))
         st.stop()
 
-    uploaded_ids = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
+    # Czyszczenie i filtrowanie
+    uploaded_ids = pd.Series(uploaded_df['farmer_id']).astype(str).str.strip().str.lower()
     quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
-    quota_df = quota_df[quota_df['farmer_id'].isin(set(uploaded_ids))]
-
+    quota_df = quota_df[quota_df['farmer_id'].isin(uploaded_ids)]
 
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
-# --- WARNINGS table (EUDR only) --------------------------------------------
+
     if not quota_filtered.empty:
         st.write(t("quota_overview_title"))
 
@@ -636,11 +577,10 @@ if delivery_file:
             'quota_used_pct': '{:.2f}'
         })
 
-        st.write(styled_quota)
+        st.dataframe(styled_quota, use_container_width=True)
         st.warning(t("quota_warning_count").format(len(quota_filtered)))
     else:
         st.success(t("quota_ok"))
-
 
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = 'EXCEEDED' in quota_filtered['quota_status'].values
@@ -667,23 +607,17 @@ if delivery_file:
         st.write(t("lot_status_out_of_range"))
         st.dataframe(lot_status_info[~lot_status_ok])
 
-    def rollback_delivery_eudr(df_eudr_rows):
-        """Usuwa z DB tylko rekordy EUDR z bieżącego wrzutu, po eksporterze i locie."""
-        if df_eudr_rows.empty:
-            st.error(t("rollback_error"))
-            return
-        for exporter_name in df_eudr_rows['exporter'].dropna().astype(str).str.strip().unique():
-            sub_exp = df_eudr_rows[df_eudr_rows['exporter'].str.strip() == exporter_name]
-            for lot in sub_exp['export_lot'].unique():
-                farmer_ids_for_lot = sub_exp.loc[sub_exp['export_lot'] == lot, 'farmer_id'].unique().tolist()
-                delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+    def rollback_delivery(uploaded_df):
+        lot_numbers = uploaded_df['export_lot'].unique()
+        exporter_name = uploaded_df['exporter'].iloc[0]
+        for lot in lot_numbers:
+            farmer_ids_for_lot = uploaded_df[uploaded_df['export_lot'] == lot]['farmer_id'].unique().tolist()
+            delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
         st.error(t("rollback_error"))
-
     
     final_lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
     final_exporter_names = ", ".join(sorted(set(uploaded_df['exporter'].dropna().astype(str).str.strip())))
     total_kg = int(final_lot_totals.sum())
-    non_eudr_total_kg = int(df_noneudr['net_weight_kg'].sum()) if not df_noneudr.empty else 0
 
     if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
         st.success(t("file_approved"))
@@ -692,19 +626,16 @@ if delivery_file:
             pdf_file = generate_pdf_confirmation(
                 lot_numbers=final_lot_totals.index.tolist(),
                 exporter_name=final_exporter_names,
-                farmer_count=df_eudr['farmer_id'].nunique() if not df_eudr.empty else 0,
+                farmer_count=uploaded_df['farmer_id'].nunique(),
                 total_kg=total_kg,
                 lot_kg_summary=final_lot_totals.to_dict(),
                 cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
                 logo_path=LOGO_PATH,
                 logo_cocoa=LOGO_COCOA,
                 uploaded_file_content=uploaded_excel_file.getvalue(), # Pass the file content
-                delivery_file_name=uploaded_excel_file.name, # Pass the file name
-                non_eudr_total_kg=non_eudr_total_kg,
+                delivery_file_name=uploaded_excel_file.name # Pass the file name
             )
             with open(pdf_file, "rb") as f:
                 st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
     else:
-        rollback_delivery_eudr(df_eudr)
-
-
+        rollback_delivery(uploaded_df)
