@@ -283,9 +283,9 @@ def refresh_and_wait(max_wait=5.0, step=0.5):
     żeby odczyt quota_view był spójny z ostatnim insertem/rollbackiem.
     """
     try:
-        supabase.rpc("refresh_quota_view").execute()
+        supabase.rpc("refresh_quota_view", {}).execute()
     except Exception as e:
-        st.warning(f"⚠️ Nie udało się wywołać refresh_quota_view: {e}")
+        st.warning(f"⚠️ Refresh_quota_view was not activated: {e}")
         return
 
     waited = 0.0
@@ -339,7 +339,7 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
     
 def refresh_quota_view():
     try:
-        supabase.rpc("refresh_quota_view").execute()
+        supabase.rpc("refresh_quota_view", {}).execute()
         print("✅ quota_view successfully refreshed.")
     except Exception as e:
         print("❌ Failed to refresh quota_view:", e)
