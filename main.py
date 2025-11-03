@@ -603,19 +603,17 @@ if delivery_file:
         st.stop()
     # Diagnoza – sprawdź czy kolumna farmer_id istnieje
     # --- QUOTA: load & filter only by EUDR farmer_ids --------------------------
+# --- QUOTA: load & filter by ALL farmer_ids from the uploaded file ---------
     quota_df = load_quota_view()
 
     if 'farmer_id' not in quota_df.columns:
         st.error(t("missing_farmer_id_column").format(list(quota_df.columns)))
         st.stop()
 
-    if not df_eudr.empty:
-        uploaded_ids = pd.Series(df_eudr['farmer_id']).astype(str).str.strip().str.lower()
-        quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
-        quota_df = quota_df[quota_df['farmer_id'].isin(uploaded_ids)]
-    else:
-        # brak EUDR – brak rekordów do sprawdzania
-        quota_df = quota_df.iloc[0:0]
+    uploaded_ids = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
+    quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
+    quota_df = quota_df[quota_df['farmer_id'].isin(set(uploaded_ids))]
+
 
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
