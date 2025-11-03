@@ -330,7 +330,7 @@ def generate_pdf_confirmation(
 ):
     """
     Generate PDF and upload both PDF and Excel to SharePoint.
-    Updated to match working COOP app pattern.
+    Returns (filename, pdf_bytes) for download button.
     """
     import streamlit as st
     from fpdf import FPDF
@@ -390,9 +390,8 @@ def generate_pdf_confirmation(
     total_volume_mt = round(total_kg / 1000, 2)
     filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
     
-    # Save PDF to bytes
+    # Save PDF to bytes (don't save to disk)
     pdf_bytes = pdf.output(dest='S').encode('latin1')
-    pdf_buffer = BytesIO(pdf_bytes)
 
     # --- SAVE TO DATABASE ---
     data = {
@@ -403,17 +402,27 @@ def generate_pdf_confirmation(
         "file_name": filename
     }
     try:
+        from supabase import create_client
+        supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
         supabase.table("approvals").insert(data).execute()
     except Exception as e:
-        st.error(f"{t('approval_save_error')}: {e}")
+        st.error(f"❌ Error saving approval to database: {e}")
 
     # --- SHAREPOINT UPLOAD (matching COOP app pattern) ---
     try:
-        sharepoint_config = st.secrets.get("sharepoint", {})
+        # Check if sharepoint config exists in secrets
+        if "sharepoint" not in st.secrets:
+            st.warning("⚠️ SharePoint configuration not found in secrets. Skipping upload.")
+            return filename, pdf_bytes
         
-        if not sharepoint_config:
-            st.warning("⚠️ SharePoint configuration not found in secrets. Files not uploaded.")
-            return filename
+        sharepoint_config = st.secrets["sharepoint"]
+        
+        # Verify all required keys exist
+        required_keys = ["site_url", "client_id", "client_secret", "library_name"]
+        missing_keys = [key for key in required_keys if key not in sharepoint_config]
+        if missing_keys:
+            st.warning(f"⚠️ Missing SharePoint config keys: {', '.join(missing_keys)}. Skipping upload.")
+            return filename, pdf_bytes
         
         site_url = sharepoint_config["site_url"]
         client_id = sharepoint_config["client_id"]
@@ -422,14 +431,13 @@ def generate_pdf_confirmation(
 
         # Upload PDF
         st.info("📤 Uploading PDF to SharePoint...")
-        pdf_buffer.seek(0)
         success_pdf = upload_file_to_sharepoint(
             site_url=site_url,
             client_id=client_id,
             client_secret=client_secret,
             folder_path=library_name,
             file_name=filename,
-            file_content=pdf_buffer.getvalue()
+            file_content=pdf_bytes
         )
 
         # Upload Excel
@@ -452,26 +460,13 @@ def generate_pdf_confirmation(
         else:
             st.error("❌ Both uploads failed. Check SharePoint configuration and logs.")
 
-    except KeyError as e:
-        st.warning(f"⚠️ SharePoint upload skipped: Missing configuration key {e}")
     except Exception as e:
         st.error(f"❌ SharePoint upload error: {e}")
         import traceback
         st.code(traceback.format_exc())
 
-    return filename
-
-def refresh_quota_view():
-    try:
-        supabase.rpc("refresh_quota_view", {}).execute()
-        print("✅ quota_view successfully refreshed.")
-    except Exception as e:
-        print("❌ Failed to refresh quota_view:", e)
-
-refresh_quota_view()
-
-
-
+    # Return filename and bytes for download button
+    return filename, pdf_bytes
 
 def load_quota_view():
     # ✅ Load ALL rows with pagination (same as load_all_farmers)
@@ -750,7 +745,9 @@ if delivery_file:
         st.success(t("file_approved"))
         if st.button(t("generate_pdf")):
             total_kg = int(final_lot_totals.sum())
-            pdf_file = generate_pdf_confirmation(
+            
+            # This now returns (filename, pdf_bytes) instead of just filename
+            pdf_filename, pdf_bytes = generate_pdf_confirmation(
                 lot_numbers=final_lot_totals.index.tolist(),
                 exporter_name=final_exporter_names,
                 farmer_count=df_eudr['farmer_id'].nunique() if not df_eudr.empty else 0,
@@ -759,11 +756,17 @@ if delivery_file:
                 cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
                 logo_path=LOGO_PATH,
                 logo_cocoa=LOGO_COCOA,
-                uploaded_file_content=uploaded_excel_file.getvalue(), # Pass the file content
-                delivery_file_name=uploaded_excel_file.name, # Pass the file name
+                uploaded_file_content=uploaded_excel_file.getvalue(),
+                delivery_file_name=uploaded_excel_file.name,
                 non_eudr_total_kg=non_eudr_total_kg,
             )
-            with open(pdf_file, "rb") as f:
-                st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
+            
+            # Use the bytes directly for download (no file I/O)
+            st.download_button(
+                t("download_pdf"), 
+                data=pdf_bytes,  # Use the bytes directly
+                file_name=pdf_filename, 
+                mime="application/pdf"
+            )
     else:
         rollback_delivery_eudr(df_eudr)
