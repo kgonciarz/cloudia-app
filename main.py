@@ -283,43 +283,48 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
     Matches the working implementation from the COOP app.
     """
     try:
-        print("📡 START upload_file_to_sharepoint()")
-        print("🌐 site_url:", site_url)
-        print("📁 folder_path:", folder_path)
-        print("📄 file_name:", file_name)
+        # 1) Auth
+        ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
 
-        # Authenticate using client credentials
-        credentials = ClientCredential(client_id, client_secret)
-        ctx = ClientContext(site_url).with_credentials(credentials)
-        
-        print("🔑 Auth OK")
-        
-        # Load web to verify connection
+        # 2) Discover site base (e.g. "/sites/TRACAFILES")
         web = ctx.web
         ctx.load(web)
         ctx.execute_query()
-        print("🌍 Web title:", web.properties.get("Title"))
-        print("📎 ServerRelativeUrl (web):", web.properties.get("ServerRelativeUrl"))
+        base = web.serverRelativeUrl or web.properties.get("ServerRelativeUrl", "")
+        if not base:
+            raise RuntimeError("Could not resolve site ServerRelativeUrl")
 
-        # Construct the full folder URL (matching COOP app pattern)
-        folder_url = f"/sites/TRACAFILES/{folder_path}"
-        print("📂 Full folder URL:", folder_url)
-        
+        # 3) Build correct folder URL (no hardcoded /sites/...)
+        folder_url = f"{base.rstrip('/')}/{str(folder_path).lstrip('/')}"
+        # st.write("DEBUG folder_url:", folder_url)  # optional
+
+        # 4) Ensure folder exists / is accessible
         target_folder = ctx.web.get_folder_by_server_relative_url(folder_url)
         ctx.load(target_folder)
         ctx.execute_query()
-        print("✅ Folder exists:", target_folder.properties.get("ServerRelativeUrl", "NO URL"))
 
-        # Upload the file
-        target_folder.upload_file(file_name, file_content).execute_query()
-        print("✅ File uploaded successfully")
+        # 5) Normalize bytes
+        if hasattr(file_content, "getvalue"):
+            data = file_content.getvalue()
+        elif hasattr(file_content, "read"):
+            # Streamlit UploadedFile
+            try:
+                file_content.seek(0)
+            except Exception:
+                pass
+            data = file_content.read()
+        elif isinstance(file_content, (bytes, bytearray)):
+            data = file_content
+        else:
+            raise TypeError("file_content must be bytes, BytesIO, or a file-like object")
 
+        # 6) Upload
+        target_folder.upload_file(file_name, data).execute_query()
+        st.success(f"✅ Uploaded to SharePoint: {folder_url}/{file_name}")
         return True
-        
+
     except Exception as e:
-        print("❌ SharePoint upload exception:", repr(e))
-        import traceback
-        traceback.print_exc()
+        st.error(f"❌ SharePoint upload failed: {type(e).__name__}: {e}")
         return False
 
 
