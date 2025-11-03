@@ -31,8 +31,8 @@ def t(key):
             "Français": "✅ Format : .xlsx | Taille max : 200 Mo"
         },
         "title": {
-            "English": "☁️ CloudIA – Farmer Quota Verification System",
-            "Français": "☁️ CloudIA – Système de Vérification des Quotas"
+            "English": "☁ CloudIA – Farmer Quota Verification System",
+            "Français": "☁ CloudIA – Système de Vérification des Quotas"
         },
         "generate_pdf": {
             "English": "Generate Approval PDF",
@@ -67,8 +67,8 @@ def t(key):
             "Français": "### Aperçu de l'état des lots - Hors plage autorisée"
         },
         "quota_warning_count": {
-            "English": "⚠️ {} farmers in the uploaded file have quota warnings or exceeded limits.",
-            "Français": "⚠️ {} producteurs du fichier ont des avertissements de quota ou ont dépassé les limites."
+            "English": "⚠ {} farmers in the uploaded file have quota warnings or exceeded limits.",
+            "Français": "⚠ {} producteurs du fichier ont des avertissements de quota ou ont dépassé les limites."
         },
         "quota_ok": {
             "English": "✅ All farmers in the uploaded file are within their assigned quotas.",
@@ -383,10 +383,10 @@ def generate_pdf_confirmation(
     reference_number = lot_numbers[0] if len(lot_numbers) == 1 else "MULTI"
     reference_number = re.sub(r"[^\w\-]", "_", str(reference_number))
     today_str = datetime.now().strftime('%Y%m%d')
-    exporter_clean = exporter_name.replace(" ", "_").replace("/", "_")[:20]
+    exporter_clean = exporter_name.replace(" ", "").replace("/", "")[:20]
     total_volume_mt = round(total_kg / 1000, 2)
 
-    filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
+    filename = f"Approval_{reference_number}{today_str}{exporter_clean}_{total_volume_mt}MT.pdf"
     pdf.output(filename)
 
     # --- ZAPISZ DO TABELI approvals ---
@@ -561,7 +561,7 @@ if delivery_file:
 
     if not df_noneudr.empty:
         st.info(
-            f"ℹ️ Excluding {len(df_noneudr)} Non-EUDR rows from database & quota checks. "
+            f"ℹ Excluding {len(df_noneudr)} Non-EUDR rows from database & quota checks. "
             f"They will still count toward lot totals and appear in the PDF."
         )
 
@@ -592,7 +592,22 @@ if delivery_file:
 
     # dalej: inserted_ok = ..., quota_df = ..., PDF...
 
-
+    refresh_quota_view()
+    time.sleep(1)
+    
+    # ✅ NOW check quota status BEFORE inserting new data
+    quota_df_precheck = load_quota_view()
+    if not df_eudr.empty:
+        uploaded_ids = pd.Series(df_eudr['farmer_id']).astype(str).str.strip().str.lower()
+        quota_df_precheck['farmer_id'] = quota_df_precheck['farmer_id'].astype(str).str.strip().str.lower()
+        quota_df_precheck = quota_df_precheck[quota_df_precheck['farmer_id'].isin(uploaded_ids)]
+        
+        # Check if ANY farmer would EXCEED after this delivery
+        exceeded_farmers = quota_df_precheck[quota_df_precheck['quota_status'] == 'EXCEEDED']
+        if not exceeded_farmers.empty:
+            st.error("❌ Cannot process delivery: The following farmers have ALREADY EXCEEDED their quotas:")
+            st.dataframe(exceeded_farmers[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_status']])
+            st.stop()
 # ... (wszystko przed tym zostaje bez zmian)
 
     inserted_ok = True
@@ -603,17 +618,19 @@ if delivery_file:
         st.stop()
     # Diagnoza – sprawdź czy kolumna farmer_id istnieje
     # --- QUOTA: load & filter only by EUDR farmer_ids --------------------------
-# --- QUOTA: load & filter by ALL farmer_ids from the uploaded file ---------
     quota_df = load_quota_view()
 
     if 'farmer_id' not in quota_df.columns:
         st.error(t("missing_farmer_id_column").format(list(quota_df.columns)))
         st.stop()
 
-    uploaded_ids = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
-    quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
-    quota_df = quota_df[quota_df['farmer_id'].isin(set(uploaded_ids))]
-
+    if not df_eudr.empty:
+        uploaded_ids = pd.Series(df_eudr['farmer_id']).astype(str).str.strip().str.lower()
+        quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
+        quota_df = quota_df[quota_df['farmer_id'].isin(uploaded_ids)]
+    else:
+        # brak EUDR – brak rekordów do sprawdzania
+        quota_df = quota_df.iloc[0:0]
 
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
@@ -706,5 +723,3 @@ if delivery_file:
                 st.download_button(t("download_pdf"), data=f, file_name=pdf_file, mime="application/pdf")
     else:
         rollback_delivery_eudr(df_eudr)
-
-
