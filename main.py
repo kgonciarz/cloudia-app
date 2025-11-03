@@ -403,32 +403,43 @@ def generate_pdf_confirmation(
         st.error(f"{t('approval_save_error')}: {e}")
 
     # --- SharePoint Upload with Error Handling ---
-    sharepoint_folder_path = st.secrets["sharepoint"]["library_name"]
-    excel_file_name = delivery_file_name  # Use the passed file name
+# --- SharePoint Upload (best-effort after validations) ---
+    sp = st.secrets.get("sharepoint", {})
+    required_keys = ("site_url", "client_id", "client_secret")
 
-    try:
-        sharepoint_site_url = st.secrets["sharepoint"]["site_url"]
-        sharepoint_client_id = st.secrets["sharepoint"]["client_id"]
-        sharepoint_client_secret = st.secrets["sharepoint"]["client_secret"]
+    # accept multiple possible names for the folder key
+    folder_key_candidates = ["library_name", "folder_path", "document_library"]
+    folder_key = next((k for k in folder_key_candidates if isinstance(sp, dict) and sp.get(k)), None)
 
-        upload_success = upload_file_to_sharepoint(
-            site_url=sharepoint_site_url,
-            client_id=sharepoint_client_id,
-            client_secret=sharepoint_client_secret,
-            folder_path=sharepoint_folder_path,
-            file_name=excel_file_name,
-            file_content=uploaded_file_content
+    can_upload = (
+        isinstance(sp, dict)
+        and all(sp.get(k) for k in required_keys)
+        and folder_key is not None
+    )
+
+    if not can_upload:
+        st.info(
+            "ℹ Skipping SharePoint upload: missing or incomplete secrets "
+            "(need site_url, client_id, client_secret, and one of "
+            "library_name/folder_path/document_library)."
         )
+    else:
+        try:
+            upload_success = upload_file_to_sharepoint(
+                site_url=sp["site_url"],
+                client_id=sp["client_id"],
+                client_secret=sp["client_secret"],
+                folder_path=str(sp[folder_key]),
+                file_name=delivery_file_name,
+                file_content=uploaded_file_content
+            )
+            if upload_success:
+                st.success(f"✅ Excel file '{delivery_file_name}' uploaded to SharePoint.")
+            else:
+                st.error("❌ SharePoint upload failed. Please check logs/configuration.")
+        except Exception as e:
+            st.error(f"❌ SharePoint upload error: {e}")
 
-        if upload_success:
-            st.success(f"✅ Excel file '{excel_file_name}' successfully uploaded to SharePoint.")
-        else:
-            st.error(f"❌ Failed to upload Excel file '{excel_file_name}' to SharePoint. See logs for details.")
-
-    except KeyError as e:
-        st.error(f"❌ SharePoint credentials not found in Streamlit secrets: {e}.")
-    except Exception as e:
-        st.error(f"❌ An unexpected error occurred during SharePoint upload preparation: {e}")
 
     return filename
 
@@ -555,10 +566,10 @@ if delivery_file:
     uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
 
     # de-dup
-    uploaded_df = uploaded_df.drop_duplicates(
-        subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
-        keep='last'
-    )
+    #uploaded_df = uploaded_df.drop_duplicates(
+    #    subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
+    #    keep='last'
+    #)
 
     # empty file guard
     if uploaded_df.empty:
