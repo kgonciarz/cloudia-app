@@ -277,6 +277,21 @@ def save_delivery_to_supabase(df):
         st.error(f"{t('insert_error')}: {e}")
         return False
 
+def refresh_and_wait(max_wait=5.0, step=0.5):
+    """
+    Wymusza refresh materializowanego widoku i chwilę czeka,
+    żeby odczyt quota_view był spójny z ostatnim insertem/rollbackiem.
+    """
+    try:
+        supabase.rpc("refresh_quota_view").execute()
+    except Exception as e:
+        st.warning(f"⚠️ Nie udało się wywołać refresh_quota_view: {e}")
+        return
+
+    waited = 0.0
+    while waited < max_wait:
+        time.sleep(step)
+        waited += step
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
     try:
@@ -606,7 +621,7 @@ if delivery_file:
         st.stop()
     # Diagnoza – sprawdź czy kolumna farmer_id istnieje
     # --- QUOTA: load & filter only by EUDR farmer_ids --------------------------
-    time.sleep(1)  # daj czas na propagację
+    refresh_and_wait(max_wait=5.0, step=0.5)
     quota_df = load_quota_view()
 
     if 'farmer_id' not in quota_df.columns:
@@ -684,6 +699,7 @@ if delivery_file:
                 farmer_ids_for_lot = sub_exp.loc[sub_exp['export_lot'] == lot, 'farmer_id'].unique().tolist()
                 delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
         st.error(t("rollback_error"))
+        refresh_and_wait(max_wait=5.0, step=0.5)
 
     
     final_lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
