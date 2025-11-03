@@ -597,34 +597,13 @@ if delivery_file:
     
     # ✅ NOW check quota status BEFORE inserting new data
     quota_df_precheck = load_quota_view()
-    # 🔍 DIAGNOSTIC 1: What's in quota_view?
-    st.write("### 🔍 DIAGNOSTIC 1: Full quota_view")
-    st.write(f"Total rows in quota_view: {len(quota_df_precheck)}")
-    st.dataframe(quota_df_precheck)
-    
     if not df_eudr.empty:
         uploaded_ids = pd.Series(df_eudr['farmer_id']).astype(str).str.strip().str.lower()
-        
-        # 🔍 DIAGNOSTIC 2: What farmer_ids are we looking for?
-        st.write("### 🔍 DIAGNOSTIC 2: Uploaded farmer_ids")
-        st.write(uploaded_ids.tolist())
-        
         quota_df_precheck['farmer_id'] = quota_df_precheck['farmer_id'].astype(str).str.strip().str.lower()
         quota_df_precheck = quota_df_precheck[quota_df_precheck['farmer_id'].isin(uploaded_ids)]
         
-        # 🔍 DIAGNOSTIC 3: What did we find after filtering?
-        st.write("### 🔍 DIAGNOSTIC 3: Filtered quota_df_precheck")
-        st.write(f"Rows after filtering: {len(quota_df_precheck)}")
-        st.dataframe(quota_df_precheck)
-        
         # Check if ANY farmer would EXCEED after this delivery
         exceeded_farmers = quota_df_precheck[quota_df_precheck['quota_status'] == 'EXCEEDED']
-        
-        # 🔍 DIAGNOSTIC 4: Who has EXCEEDED status?
-        st.write("### 🔍 DIAGNOSTIC 4: Exceeded farmers")
-        st.write(f"Farmers with EXCEEDED: {len(exceeded_farmers)}")
-        st.dataframe(exceeded_farmers)
-        
         if not exceeded_farmers.empty:
             st.error("❌ Cannot process delivery: The following farmers have ALREADY EXCEEDED their quotas:")
             st.dataframe(exceeded_farmers[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_status']])
