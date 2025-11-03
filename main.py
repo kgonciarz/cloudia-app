@@ -433,44 +433,43 @@ def generate_pdf_confirmation(
     return filename
 
 
-@st.cache_data
 def load_quota_view():
-    all_rows = []
-    page_size = 1000
-    offset = 0
+    result = supabase.table("quota_view").select("*").execute()
+    df = pd.DataFrame(result.data)
 
-    while True:
-        res = supabase.table("quota_view") \
-                      .select("*") \
-                      .range(offset, offset + page_size - 1) \
-                      .execute()
-        rows = res.data or []
-        if not rows:
-            break
-        all_rows.extend(rows)
-        if len(rows) < page_size:
-            break
-        offset += page_size
-
-    df = pd.DataFrame(all_rows)
-
-    # Zwróć typed empty frame, jeśli nic nie ma (by downstream się nie wykrzaczył)
+    # If empty, return a typed empty frame so downstream code has expected columns
     if df.empty:
-        expected = ["farmer_id", "max_quota_kg", "total_net_weight_kg", "quota_used_pct", "quota_status"]
+        expected = [
+            "farmer_id",
+            "max_quota_kg",
+            "total_net_weight_kg",
+            "quota_used_pct",
+            "quota_status",
+        ]
         return pd.DataFrame(columns=expected)
 
-    # normalize headers + farmer_id jako tekst
+    # normalize headers
     df.columns = df.columns.str.strip().str.lower()
-    if "farmer_id" in df.columns:
-        df["farmer_id"] = df["farmer_id"].astype(str)
 
-    # Upewnij się, że są kolumny (jeśli widok ma inny zestaw)
+    # map common aliases → farmer_id
+    alias_map = {
+        "farmerid": "farmer_id",
+        "farmer-id": "farmer_id",
+        "farmer_id_": "farmer_id",
+        "id_farmer": "farmer_id",
+        "idfarmer": "farmer_id",
+    }
+    for k, v in alias_map.items():
+        if k in df.columns and "farmer_id" not in df.columns:
+            df = df.rename(columns={k: v})
+            break
+
+    # Ensure required columns exist (create empty if the view lacks them)
     for col in ["max_quota_kg", "total_net_weight_kg", "quota_used_pct", "quota_status"]:
         if col not in df.columns:
-            df[col] = pd.NA
+            df[col] = pd.Series(dtype="float64" if col != "quota_status" else "object")
 
     return df
-
 
 # --- UI Layout ---
 def image_to_base64(path):
