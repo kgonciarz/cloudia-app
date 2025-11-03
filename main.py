@@ -278,62 +278,66 @@ def save_delivery_to_supabase(df):
         return False
 
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
+    """
+    Upload a file to SharePoint using Office365 library.
+    Matches the working implementation from the COOP app.
+    """
     try:
         print("📡 START upload_file_to_sharepoint()")
         print("🌐 site_url:", site_url)
         print("📁 folder_path:", folder_path)
         print("📄 file_name:", file_name)
 
-        ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
+        # Authenticate using client credentials
+        credentials = ClientCredential(client_id, client_secret)
+        ctx = ClientContext(site_url).with_credentials(credentials)
+        
         print("🔑 Auth OK")
+        
+        # Load web to verify connection
         web = ctx.web
         ctx.load(web)
         ctx.execute_query()
         print("🌍 Web title:", web.properties.get("Title"))
         print("📎 ServerRelativeUrl (web):", web.properties.get("ServerRelativeUrl"))
 
-
-        folder = ctx.web.get_folder_by_server_relative_url(folder_path)
-        print("📁 Got folder object:", folder)
-
-        ctx.load(folder)
+        # Construct the full folder URL (matching COOP app pattern)
+        folder_url = f"/sites/TRACAFILES/{folder_path}"
+        print("📂 Full folder URL:", folder_url)
+        
+        target_folder = ctx.web.get_folder_by_server_relative_url(folder_url)
+        ctx.load(target_folder)
         ctx.execute_query()
-        print("✅ Folder exists:", folder.properties.get("ServerRelativeUrl", "NO URL"))
+        print("✅ Folder exists:", target_folder.properties.get("ServerRelativeUrl", "NO URL"))
 
-        folder.upload_file(file_name, file_content).execute_query()
-        print("✅ File uploaded")
-
-        folders = web.folders
-        ctx.load(folders)
-        ctx.execute_query()
-        print("📂 Folders in site:")
-        print("✅ Full SharePoint URL:", site_url + "/" + folder_path)
-
-        for f in folders:
-            print(" -", f.properties["Name"])
-
+        # Upload the file
+        target_folder.upload_file(file_name, file_content).execute_query()
+        print("✅ File uploaded successfully")
 
         return True
+        
     except Exception as e:
-        print("❌ Exception:", repr(e)) 
+        print("❌ SharePoint upload exception:", repr(e))
+        import traceback
+        traceback.print_exc()
         return False
 
-
-def refresh_quota_view():
-    try:
-        supabase.rpc("refresh_quota_view", {}).execute()
-        print("✅ quota_view successfully refreshed.")
-    except Exception as e:
-        print("❌ Failed to refresh quota_view:", e)
-
-refresh_quota_view()
 
 def generate_pdf_confirmation(
     lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary,
     logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
     delivery_file_name, non_eudr_total_kg=0
 ):
+    """
+    Generate PDF and upload both PDF and Excel to SharePoint.
+    Updated to match working COOP app pattern.
+    """
     import streamlit as st
+    from fpdf import FPDF
+    from datetime import datetime
+    from io import BytesIO
+    import re
+    
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
@@ -360,7 +364,6 @@ def generate_pdf_confirmation(
     pdf.multi_cell(0, 10, f"Total Farmers: {farmer_count}")
     pdf.multi_cell(0, 10, f"Total Net Weight: {round(total_kg / 1000, 2)} MT")
 
-    # Wkład Non-EUDR (tuż po Total Net Weight)
     if non_eudr_total_kg and non_eudr_total_kg > 0:
         pdf.multi_cell(
             0, 10,
@@ -372,7 +375,6 @@ def generate_pdf_confirmation(
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Lot Summary", ln=True)
     pdf.set_font("Arial", "", 12)
-    # Zachowaj kolejność lot_numbers w PDF
     for lot in lot_numbers:
         kg = lot_kg_summary.get(lot, 0)
         pdf.cell(0, 10, f"{lot}: {round(kg / 1000, 2)} MT", ln=True)
@@ -380,16 +382,19 @@ def generate_pdf_confirmation(
     pdf.ln(5)
     pdf.cell(0, 10, "Approved by CloudIA", ln=True)
 
+    # Generate filename
     reference_number = lot_numbers[0] if len(lot_numbers) == 1 else "MULTI"
     reference_number = re.sub(r"[^\w\-]", "_", str(reference_number))
     today_str = datetime.now().strftime('%Y%m%d')
     exporter_clean = exporter_name.replace(" ", "").replace("/", "")[:20]
     total_volume_mt = round(total_kg / 1000, 2)
+    filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
+    
+    # Save PDF to bytes
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    pdf_buffer = BytesIO(pdf_bytes)
 
-    filename = f"Approval_{reference_number}{today_str}{exporter_clean}_{total_volume_mt}MT.pdf"
-    pdf.output(filename)
-
-    # --- ZAPISZ DO TABELI approvals ---
+    # --- SAVE TO DATABASE ---
     data = {
         "created_at": now,
         "lot_number": ", ".join(str(l) for l in lot_numbers),
@@ -402,35 +407,70 @@ def generate_pdf_confirmation(
     except Exception as e:
         st.error(f"{t('approval_save_error')}: {e}")
 
-    # --- SharePoint Upload with Error Handling ---
-    sharepoint_folder_path = st.secrets["sharepoint"]["library_name"]
-    excel_file_name = delivery_file_name  # Use the passed file name
-
+    # --- SHAREPOINT UPLOAD (matching COOP app pattern) ---
     try:
-        sharepoint_site_url = st.secrets["sharepoint"]["site_url"]
-        sharepoint_client_id = st.secrets["sharepoint"]["client_id"]
-        sharepoint_client_secret = st.secrets["sharepoint"]["client_secret"]
+        sharepoint_config = st.secrets.get("sharepoint", {})
+        
+        if not sharepoint_config:
+            st.warning("⚠️ SharePoint configuration not found in secrets. Files not uploaded.")
+            return filename
+        
+        site_url = sharepoint_config["site_url"]
+        client_id = sharepoint_config["client_id"]
+        client_secret = sharepoint_config["client_secret"]
+        library_name = sharepoint_config["library_name"]
 
-        upload_success = upload_file_to_sharepoint(
-            site_url=sharepoint_site_url,
-            client_id=sharepoint_client_id,
-            client_secret=sharepoint_client_secret,
-            folder_path=sharepoint_folder_path,
-            file_name=excel_file_name,
+        # Upload PDF
+        st.info("📤 Uploading PDF to SharePoint...")
+        pdf_buffer.seek(0)
+        success_pdf = upload_file_to_sharepoint(
+            site_url=site_url,
+            client_id=client_id,
+            client_secret=client_secret,
+            folder_path=library_name,
+            file_name=filename,
+            file_content=pdf_buffer.getvalue()
+        )
+
+        # Upload Excel
+        st.info("📤 Uploading Excel to SharePoint...")
+        success_excel = upload_file_to_sharepoint(
+            site_url=site_url,
+            client_id=client_id,
+            client_secret=client_secret,
+            folder_path=library_name,
+            file_name=delivery_file_name,
             file_content=uploaded_file_content
         )
 
-        if upload_success:
-            st.success(f"✅ Excel file '{excel_file_name}' successfully uploaded to SharePoint.")
+        if success_pdf and success_excel:
+            st.success("✅ Both PDF and Excel files uploaded to SharePoint successfully!")
+        elif success_pdf:
+            st.warning("⚠️ PDF uploaded but Excel upload failed. Check logs.")
+        elif success_excel:
+            st.warning("⚠️ Excel uploaded but PDF upload failed. Check logs.")
         else:
-            st.error(f"❌ Failed to upload Excel file '{excel_file_name}' to SharePoint. See logs for details.")
+            st.error("❌ Both uploads failed. Check SharePoint configuration and logs.")
 
     except KeyError as e:
-        st.error(f"❌ SharePoint credentials not found in Streamlit secrets: {e}.")
+        st.warning(f"⚠️ SharePoint upload skipped: Missing configuration key {e}")
     except Exception as e:
-        st.error(f"❌ An unexpected error occurred during SharePoint upload preparation: {e}")
+        st.error(f"❌ SharePoint upload error: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
     return filename
+
+def refresh_quota_view():
+    try:
+        supabase.rpc("refresh_quota_view", {}).execute()
+        print("✅ quota_view successfully refreshed.")
+    except Exception as e:
+        print("❌ Failed to refresh quota_view:", e)
+
+refresh_quota_view()
+
+
 
 
 def load_quota_view():
