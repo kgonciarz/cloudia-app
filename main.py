@@ -601,10 +601,6 @@ if delivery_file:
     #    subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
     #    keep='last'
     #)
-    uploaded_df = uploaded_df.drop_duplicates(
-        subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
-        keep='last'
-    )
 
     # empty file guard
     if uploaded_df.empty:
