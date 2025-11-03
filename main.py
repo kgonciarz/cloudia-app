@@ -11,6 +11,7 @@ import base64
 import math
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.sharepoint.client_context import ClientContext
+from urllib.parse import urlparse
 st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 # Language switcher
 lang = st.sidebar.radio("🌐 Language / Langue", ["English", "Français"])
@@ -286,28 +287,29 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
         # 1) Auth
         ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
 
-        # 2) Discover site base (e.g. "/sites/TRACAFILES")
+        # 2) Load web + explicitly request ServerRelativeUrl
         web = ctx.web
-        ctx.load(web)
+        ctx.load(web, ["Title", "ServerRelativeUrl"])
         ctx.execute_query()
-        base = web.serverRelativeUrl or web.properties.get("ServerRelativeUrl", "")
+
+        # 3) Get base server-relative URL (fallback to parsing site_url)
+        base = web.properties.get("ServerRelativeUrl")
         if not base:
-            raise RuntimeError("Could not resolve site ServerRelativeUrl")
+            # e.g. "/sites/TRACAFILES"
+            base = urlparse(site_url).path.rstrip("/") or "/"
 
-        # 3) Build correct folder URL (no hardcoded /sites/...)
+        # 4) Build correct folder URL (no hardcoded /sites)
         folder_url = f"{base.rstrip('/')}/{str(folder_path).lstrip('/')}"
-        # st.write("DEBUG folder_url:", folder_url)  # optional
 
-        # 4) Ensure folder exists / is accessible
+        # 5) Ensure folder exists / is accessible
         target_folder = ctx.web.get_folder_by_server_relative_url(folder_url)
-        ctx.load(target_folder)
+        ctx.load(target_folder, ["ServerRelativeUrl", "Name"])
         ctx.execute_query()
 
-        # 5) Normalize bytes
+        # 6) Read bytes (BytesIO, UploadedFile, or raw bytes)
         if hasattr(file_content, "getvalue"):
             data = file_content.getvalue()
         elif hasattr(file_content, "read"):
-            # Streamlit UploadedFile
             try:
                 file_content.seek(0)
             except Exception:
@@ -318,7 +320,7 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
         else:
             raise TypeError("file_content must be bytes, BytesIO, or a file-like object")
 
-        # 6) Upload
+        # 7) Upload
         target_folder.upload_file(file_name, data).execute_query()
         st.success(f"✅ Uploaded to SharePoint: {folder_url}/{file_name}")
         return True
