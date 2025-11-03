@@ -434,8 +434,23 @@ def generate_pdf_confirmation(
 
 
 def load_quota_view():
-    result = supabase.table("quota_view").select("*").execute()
-    df = pd.DataFrame(result.data)
+    # ✅ Load ALL rows with pagination (same as load_all_farmers)
+    all_rows = []
+    page_size = 1000
+    last_farmer_id = None
+    
+    while True:
+        query = supabase.table("quota_view").select("*").limit(page_size).order("farmer_id")
+        if last_farmer_id:
+            query = query.gt("farmer_id", last_farmer_id)
+        result = query.execute()
+        rows = result.data
+        if not rows:
+            break
+        all_rows.extend(rows)
+        last_farmer_id = rows[-1]["farmer_id"]
+    
+    df = pd.DataFrame(all_rows)
 
     # If empty, return a typed empty frame so downstream code has expected columns
     if df.empty:
@@ -592,22 +607,7 @@ if delivery_file:
 
     # dalej: inserted_ok = ..., quota_df = ..., PDF...
 
-    refresh_quota_view()
-    time.sleep(1)
-    
-    # ✅ NOW check quota status BEFORE inserting new data
-    quota_df_precheck = load_quota_view()
-    if not df_eudr.empty:
-        uploaded_ids = pd.Series(df_eudr['farmer_id']).astype(str).str.strip().str.lower()
-        quota_df_precheck['farmer_id'] = quota_df_precheck['farmer_id'].astype(str).str.strip().str.lower()
-        quota_df_precheck = quota_df_precheck[quota_df_precheck['farmer_id'].isin(uploaded_ids)]
-        
-        # Check if ANY farmer would EXCEED after this delivery
-        exceeded_farmers = quota_df_precheck[quota_df_precheck['quota_status'] == 'EXCEEDED']
-        if not exceeded_farmers.empty:
-            st.error("❌ Cannot process delivery: The following farmers have ALREADY EXCEEDED their quotas:")
-            st.dataframe(exceeded_farmers[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_status']])
-            st.stop()
+
 # ... (wszystko przed tym zostaje bez zmian)
 
     inserted_ok = True
