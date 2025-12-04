@@ -707,7 +707,7 @@ if delivery_file:
 
     def check_lot_status(weight_in_kg):
         weight_in_mt = weight_in_kg / 1000
-        if math.floor(weight_in_mt * 100) < 2100:
+        if math.floor(weight_in_mt * 100) < 1900:
             return t("lot_too_low")
         return t("lot_within_range")
 
