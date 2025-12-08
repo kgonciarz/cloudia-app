@@ -167,12 +167,9 @@ def load_all_farmers():
     farmers_df['farmer_id'] = farmers_df['farmer_id'].astype(str).str.strip().str.lower()
     return farmers_df
 
-def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
+def delete_existing_delivery_rpc(export_lot, exporter_name):
     export_lot = str(export_lot)
     exporter_name = str(exporter_name)
-    if hasattr(farmer_ids, 'tolist'):
-        farmer_ids = farmer_ids.tolist()
-    farmer_ids = [str(farmer_id) for farmer_id in farmer_ids]
     try:
         supabase.rpc('delete_traceability_records', {
             'lot': export_lot,
