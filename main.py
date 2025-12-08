@@ -176,8 +176,7 @@ def delete_existing_delivery_rpc(export_lot, exporter_name, farmer_ids):
     try:
         supabase.rpc('delete_traceability_records', {
             'lot': export_lot,
-            'exporter_param': exporter_name,
-            'farmer_ids': farmer_ids
+            'exporter_param': exporter_name
         }).execute()
     except Exception as e:
         st.error(f"❌ RPC Delete Error: {e}")
@@ -644,8 +643,7 @@ if delivery_file:
         exporter_df = df_eudr[df_eudr['exporter'].str.strip() == exporter_name].copy()
         lot_numbers = exporter_df['export_lot'].unique()
         for lot in lot_numbers:
-            farmer_ids_for_lot = exporter_df.loc[exporter_df['export_lot'] == lot, 'farmer_id'].unique().tolist()
-            delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+            delete_existing_delivery_rpc(lot, exporter_name)
 
     # dalej: inserted_ok = ..., quota_df = ..., PDF...
 
