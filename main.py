@@ -732,8 +732,7 @@ if delivery_file:
         for exporter_name in df_eudr_rows['exporter'].dropna().astype(str).str.strip().unique():
             sub_exp = df_eudr_rows[df_eudr_rows['exporter'].str.strip() == exporter_name]
             for lot in sub_exp['export_lot'].unique():
-                farmer_ids_for_lot = sub_exp.loc[sub_exp['export_lot'] == lot, 'farmer_id'].unique().tolist()
-                delete_existing_delivery_rpc(lot, exporter_name, farmer_ids_for_lot)
+                delete_existing_delivery_rpc(lot, exporter_name)
         st.error(t("rollback_error"))
 
     
