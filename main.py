@@ -432,17 +432,6 @@ def generate_pdf_confirmation(
         client_secret = sharepoint_config["client_secret"]
         library_name = sharepoint_config["library_name"]
 
-        # Upload PDF
-        st.info("📤 Uploading PDF to SharePoint...")
-        success_pdf = upload_file_to_sharepoint(
-            site_url=site_url,
-            client_id=client_id,
-            client_secret=client_secret,
-            folder_path=library_name,
-            file_name=filename,
-            file_content=pdf_bytes
-        )
-
         # Upload Excel
         st.info("📤 Uploading Excel to SharePoint...")
         success_excel = upload_file_to_sharepoint(
@@ -454,14 +443,10 @@ def generate_pdf_confirmation(
             file_content=uploaded_file_content
         )
 
-        if success_pdf and success_excel:
-            st.success("✅ Both PDF and Excel files uploaded to SharePoint successfully!")
-        elif success_pdf:
-            st.warning("⚠️ PDF uploaded but Excel upload failed. Check logs.")
-        elif success_excel:
-            st.warning("⚠️ Excel uploaded but PDF upload failed. Check logs.")
+        if success_excel:
+            st.success("✅ Excel file uploaded to SharePoint successfully!")
         else:
-            st.error("❌ Both uploads failed. Check SharePoint configuration and logs.")
+            st.error("❌ Excel upload failed. Check SharePoint configuration and logs.")
 
     except Exception as e:
         st.error(f"❌ SharePoint upload error: {e}")
