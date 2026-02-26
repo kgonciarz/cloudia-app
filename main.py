@@ -588,6 +588,7 @@ farmers_df = load_all_farmers()
 
 if delivery_file:
     # --- read & normalize ----------------------------------------------------
+    uploaded_excel_bytes = delivery_file.getvalue()
     uploaded_excel_file = delivery_file  # keep original file object
     uploaded_df = pd.read_excel(uploaded_excel_file)  # read once
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
@@ -778,7 +779,7 @@ if delivery_file:
                 cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
                 logo_path=LOGO_PATH,
                 logo_cocoa=LOGO_COCOA,
-                uploaded_file_content=uploaded_excel_file.getvalue(),
+                uploaded_file_content=uploaded_excel_bytes,
                 delivery_file_name=uploaded_excel_file.name,
                 non_eudr_total_kg=non_eudr_total_kg,
             )
