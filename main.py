@@ -450,46 +450,7 @@ def generate_pdf_confirmation(
         st.error(f"❌ Error saving approval to database: {e}")
 
     # --- SHAREPOINT UPLOAD (matching COOP app pattern) ---
-    try:
-        # Check if sharepoint config exists in secrets
-        if "sharepoint" not in st.secrets:
-            st.warning("⚠️ SharePoint configuration not found in secrets. Skipping upload.")
-            return filename, pdf_bytes
-        
-        sharepoint_config = st.secrets["sharepoint"]
-        
-        # Verify all required keys exist
-        required_keys = ["site_url", "client_id", "client_secret", "library_name"]
-        missing_keys = [key for key in required_keys if key not in sharepoint_config]
-        if missing_keys:
-            st.warning(f"⚠️ Missing SharePoint config keys: {', '.join(missing_keys)}. Skipping upload.")
-            return filename, pdf_bytes
-        
-        site_url = sharepoint_config["site_url"]
-        client_id = sharepoint_config["client_id"]
-        client_secret = sharepoint_config["client_secret"]
-        library_name = sharepoint_config["library_name"]
 
-        # Upload Excel
-        st.info("📤 Uploading Excel to SharePoint...")
-        success_excel = upload_file_to_sharepoint(
-            site_url=site_url,
-            client_id=client_id,
-            client_secret=client_secret,
-            folder_path=library_name,
-            file_name=excel_filename,
-            file_content=uploaded_file_content
-        )
-
-        if success_excel:
-            st.success("✅ Excel file uploaded to SharePoint successfully!")
-        else:
-            st.error("❌ Excel upload failed. Check SharePoint configuration and logs.")
-
-    except Exception as e:
-        st.error(f"❌ SharePoint upload error: {e}")
-        import traceback
-        st.code(traceback.format_exc())
 
     # Return filename and bytes for download button
     return filename, pdf_bytes
