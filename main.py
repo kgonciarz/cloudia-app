@@ -726,10 +726,9 @@ if delivery_file:
             st.success(t("file_approved"))
 
             # --- Upload Excel to SharePoint automatically on approval ---
-            if "sharepoint" in st.secrets:
+            if "sharepoint" in st.secrets and not st.session_state.get("sharepoint_uploaded"):
                 sp = st.secrets["sharepoint"]
                 reference_number = re.sub(r"[^\w\-]", "_", str(final_lot_totals.index[0] if len(final_lot_totals) == 1 else "MULTI"))
-                today_str = datetime.now().strftime('%Y%m%d')
                 exporter_clean = final_exporter_names.replace(" ", "").replace("/", "")[:20]
                 total_volume_mt = round(total_kg / 1000, 2)
                 cooperative_clean = re.sub(r"[^\w\-]", "_", "_".join(sorted(set(uploaded_df['cooperative name'].dropna().astype(str).str.strip())))[:30])
@@ -742,6 +741,7 @@ if delivery_file:
                     file_name=excel_filename,
                     file_content=uploaded_excel_file.getvalue()
                 )
+                st.session_state["sharepoint_uploaded"] = True
 
             if st.button(t("generate_pdf")):
                 total_kg = int(final_lot_totals.sum())
