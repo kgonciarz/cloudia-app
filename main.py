@@ -761,46 +761,46 @@ if delivery_file:
     total_kg = int(final_lot_totals.sum())
     non_eudr_total_kg = int(df_noneudr['net_weight_kg'].sum()) if not df_noneudr.empty else 0
 
-    if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
-            st.success(t("file_approved"))
+if all_ids_valid and not any_quota_exceeded and lot_status_ok.all():
+        st.success(t("file_approved"))
 
-            # --- Upload Excel to SharePoint automatically on approval ---
-            if "sharepoint" in st.secrets:
-                sp = st.secrets["sharepoint"]
-                reference_number = re.sub(r"[^\w\-]", "_", str(final_lot_totals.index[0] if len(final_lot_totals) == 1 else "MULTI"))
-                today_str = datetime.now().strftime('%Y%m%d')
-                exporter_clean = final_exporter_names.replace(" ", "").replace("/", "")[:20]
-                total_volume_mt = round(total_kg / 1000, 2)
-                excel_filename = f"Delivery_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.xlsx"
-                upload_file_to_sharepoint(
-                    site_url=sp["site_url"],
-                    client_id=sp["client_id"],
-                    client_secret=sp["client_secret"],
-                    folder_path=sp["library_name"],
-                    file_name=excel_filename,
-                    file_content=uploaded_excel_file.getvalue()
-                )
+        # --- Upload Excel to SharePoint automatically on approval ---
+        if "sharepoint" in st.secrets:
+            sp = st.secrets["sharepoint"]
+            reference_number = re.sub(r"[^\w\-]", "_", str(final_lot_totals.index[0] if len(final_lot_totals) == 1 else "MULTI"))
+            exporter_clean = final_exporter_names.replace(" ", "").replace("/", "")[:20]
+            total_volume_mt = round(total_kg / 1000, 2)
+            cooperative_clean = re.sub(r"[^\w\-]", "_", "_".join(sorted(set(uploaded_df['cooperative name'].dropna().astype(str).str.strip())))[:30])
+            excel_filename = f"{reference_number}_{exporter_clean}_{cooperative_clean}_{total_volume_mt}MT.xlsx"
+            upload_file_to_sharepoint(
+                site_url=sp["site_url"],
+                client_id=sp["client_id"],
+                client_secret=sp["client_secret"],
+                folder_path=sp["library_name"],
+                file_name=excel_filename,
+                file_content=uploaded_excel_file.getvalue()
+            )
 
-            if st.button(t("generate_pdf")):
-                total_kg = int(final_lot_totals.sum())
-                pdf_filename, pdf_bytes = generate_pdf_confirmation(
-                    lot_numbers=final_lot_totals.index.tolist(),
-                    exporter_name=final_exporter_names,
-                    farmer_count=df_eudr['farmer_id'].nunique() if not df_eudr.empty else 0,
-                    total_kg=total_kg,
-                    lot_kg_summary=final_lot_totals.to_dict(),
-                    cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
-                    logo_path=LOGO_PATH,
-                    logo_cocoa=LOGO_COCOA,
-                    uploaded_file_content=uploaded_excel_file.getvalue(),
-                    delivery_file_name=uploaded_excel_file.name,
-                    non_eudr_total_kg=non_eudr_total_kg,
-                )
-                st.download_button(
-                    t("download_pdf"),
-                    data=pdf_bytes,
-                    file_name=pdf_filename,
-                    mime="application/pdf"
-                )
+        if st.button(t("generate_pdf")):
+            total_kg = int(final_lot_totals.sum())
+            pdf_filename, pdf_bytes = generate_pdf_confirmation(
+                lot_numbers=final_lot_totals.index.tolist(),
+                exporter_name=final_exporter_names,
+                farmer_count=df_eudr['farmer_id'].nunique() if not df_eudr.empty else 0,
+                total_kg=total_kg,
+                lot_kg_summary=final_lot_totals.to_dict(),
+                cooperative_names=uploaded_df['cooperative name'].dropna().unique().tolist(),
+                logo_path=LOGO_PATH,
+                logo_cocoa=LOGO_COCOA,
+                uploaded_file_content=uploaded_excel_file.getvalue(),
+                delivery_file_name=uploaded_excel_file.name,
+                non_eudr_total_kg=non_eudr_total_kg,
+            )
+            st.download_button(
+                t("download_pdf"),
+                data=pdf_bytes,
+                file_name=pdf_filename,
+                mime="application/pdf"
+            )
     else:
         rollback_delivery_eudr(df_eudr)
