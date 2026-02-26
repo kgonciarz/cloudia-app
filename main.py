@@ -360,7 +360,7 @@ def get_unique_sharepoint_filename(ctx, folder_url, file_name):
         if candidate.lower() not in existing_names:
             return candidate
         counter += 1
-        
+
 def generate_pdf_confirmation(
     lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary,
     logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
@@ -427,6 +427,7 @@ def generate_pdf_confirmation(
     exporter_clean = exporter_name.replace(" ", "").replace("/", "")[:20]
     total_volume_mt = round(total_kg / 1000, 2)
     filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
+    excel_filename = f"Delivery_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.xlsx"
     
     # Save PDF to bytes (don't save to disk)
     pdf_bytes = pdf.output(dest='S').encode('latin1')
@@ -474,7 +475,7 @@ def generate_pdf_confirmation(
             client_id=client_id,
             client_secret=client_secret,
             folder_path=library_name,
-            file_name=delivery_file_name,
+            file_name=excel_filename,
             file_content=uploaded_file_content
         )
 
