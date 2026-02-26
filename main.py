@@ -16,6 +16,7 @@ st.set_page_config(page_title="CloudIA Quota Verifier", layout="centered")
 # Language switcher
 lang = st.sidebar.radio("🌐 Language / Langue", ["English", "Français"])
 
+# Translation dictionary
 def t(key):
     translations = {
         "upload_title": {
@@ -106,8 +107,12 @@ def t(key):
             "English": "💾 Saving data...",
             "Français": "💾 Sauvegarde des données..."
         }
+
+
     }
     return translations.get(key, {}).get(lang, key)
+
+
 
 
 st.markdown("""
@@ -194,15 +199,28 @@ def save_delivery_to_supabase(df):
     df_cleaned = df.copy()
     df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+    # Najpierw zamień na string, żeby nie było błędów typu "float" -> np. nan
     df_cleaned['certification'] = df_cleaned['certification'].astype(str)
+
+# Następnie wszystko, co wygląda na puste/N/A/nan, zamień na None
     df_cleaned['certification'] = df_cleaned['certification'].replace(
         ['N/A', 'n/a', 'na', 'NA', 'NaN', 'nan', '', 'None'], None
     )
 
+
+
+
+
+    # ✅ Updated Excel date converter INSIDE this function
     def excel_date_to_date(excel_date):
+        """Converts Excel dates (numbers or strings) to ISO 'YYYY-MM-DD'.
+        If parsing fails, returns today's date."""
         today_str = datetime.today().strftime("%Y-%m-%d")
+
         if pd.isna(excel_date) or excel_date == "":
             return today_str
+
+        # Excel serial (number)
         if isinstance(excel_date, (int, float)):
             try:
                 return (
@@ -210,11 +228,15 @@ def save_delivery_to_supabase(df):
                 ).strftime("%Y-%m-%d")
             except Exception:
                 return today_str
+
+        # datetime-like
         if isinstance(excel_date, (datetime, pd.Timestamp)):
             try:
                 return pd.to_datetime(excel_date).strftime("%Y-%m-%d")
             except Exception:
                 return today_str
+
+        # strings: 18/09/2025, 18-09-2025, 18.09.2025, or serial as text
         if isinstance(excel_date, str):
             s = excel_date.strip()
             dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
@@ -225,13 +247,16 @@ def save_delivery_to_supabase(df):
                 dt = pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
                 if pd.notna(dt):
                     return dt.strftime("%Y-%m-%d")
+
         return today_str
 
+    # ✅ same lines as before, now safe
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].apply(excel_date_to_date)
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].astype(str)
 
     data = df_cleaned.to_dict(orient="records")
 
+    # Check for missing required fields
     required_fields = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
     missing_values = df_cleaned[required_fields].isnull().any(axis=1)
 
@@ -249,20 +274,34 @@ def save_delivery_to_supabase(df):
         st.error(f"{t('insert_error')}: {e}")
         return False
 
-
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
+    """
+    Upload a file to SharePoint using Office365 library.
+    If a file with the same name exists, appends (2), (3), etc.
+    """
     try:
+        # 1) Auth
         ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
+
+        # 2) Load web + explicitly request ServerRelativeUrl
         web = ctx.web
         ctx.load(web, ["Title", "ServerRelativeUrl"])
         ctx.execute_query()
+
+        # 3) Get base server-relative URL
         base = web.properties.get("ServerRelativeUrl")
         if not base:
             base = urlparse(site_url).path.rstrip("/") or "/"
+
+        # 4) Build correct folder URL
         folder_url = f"{base.rstrip('/')}/{str(folder_path).lstrip('/')}"
+
+        # 5) Ensure folder exists / is accessible
         target_folder = ctx.web.get_folder_by_server_relative_url(folder_url)
         ctx.load(target_folder, ["ServerRelativeUrl", "Name"])
         ctx.execute_query()
+
+        # 6) Read bytes
         if hasattr(file_content, "getvalue"):
             data = file_content.getvalue()
         elif hasattr(file_content, "read"):
@@ -275,18 +314,32 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
             data = file_content
         else:
             raise TypeError("file_content must be bytes, BytesIO, or a file-like object")
+
+        # 7) Check for existing files and build a unique name
         unique_file_name = get_unique_sharepoint_filename(ctx, folder_url, file_name)
+
+        # 8) Upload with unique name
         target_folder.upload_file(unique_file_name, data).execute_query()
         st.success(f"✅ Uploaded to SharePoint: {folder_url}/{unique_file_name}")
         return True
+
     except Exception as e:
         st.error(f"❌ SharePoint upload failed: {type(e).__name__}: {e}")
         return False
 
 
 def get_unique_sharepoint_filename(ctx, folder_url, file_name):
+    """
+    Check if file_name exists in the SharePoint folder.
+    If it does, return file_name(2), file_name(3), etc.
+    e.g. "Approval_LOT1_20250101.pdf" -> "Approval_LOT1_20250101(2).pdf"
+    """
     import os
+
+    # Split name and extension
     name_without_ext, ext = os.path.splitext(file_name)
+
+    # Fetch existing file names in the folder
     try:
         folder = ctx.web.get_folder_by_server_relative_url(folder_url)
         files = folder.files
@@ -295,9 +348,13 @@ def get_unique_sharepoint_filename(ctx, folder_url, file_name):
         existing_names = {f.properties["Name"].lower() for f in files}
     except Exception as e:
         st.warning(f"⚠️ Could not list SharePoint files to check for duplicates: {e}")
-        return file_name
+        return file_name  # Fall back to original name if listing fails
+
+    # If no conflict, return original name
     if file_name.lower() not in existing_names:
         return file_name
+
+    # Find the next available counter
     counter = 2
     while True:
         candidate = f"{name_without_ext}({counter}){ext}"
@@ -311,12 +368,16 @@ def generate_pdf_confirmation(
     logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
     delivery_file_name, non_eudr_total_kg=0
 ):
+    """
+    Generate PDF and upload both PDF and Excel to SharePoint.
+    Returns (filename, pdf_bytes) for download button.
+    """
     import streamlit as st
     from fpdf import FPDF
     from datetime import datetime
     from io import BytesIO
     import re
-
+    
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
@@ -361,15 +422,15 @@ def generate_pdf_confirmation(
     pdf.ln(5)
     pdf.cell(0, 10, "Approved by CloudIA", ln=True)
 
+    # Generate filename
     reference_number = lot_numbers[0] if len(lot_numbers) == 1 else "MULTI"
     reference_number = re.sub(r"[^\w\-]", "_", str(reference_number))
     today_str = datetime.now().strftime('%Y%m%d')
     exporter_clean = exporter_name.replace(" ", "").replace("/", "")[:20]
     total_volume_mt = round(total_kg / 1000, 2)
     filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
-    cooperative_clean = re.sub(r"[^\w\-]", "_", "_".join(sorted(set([c.strip() for c in cooperative_names])))[:30])
-    excel_filename = f"{reference_number}_{exporter_clean}_{cooperative_clean}_{total_volume_mt}MT.xlsx"
-
+    
+    # Save PDF to bytes (don't save to disk)
     pdf_bytes = pdf.output(dest='S').encode('latin1')
 
     # --- SAVE TO DATABASE ---
@@ -387,31 +448,36 @@ def generate_pdf_confirmation(
     except Exception as e:
         st.error(f"❌ Error saving approval to database: {e}")
 
-    # --- SHAREPOINT UPLOAD ---
+    # --- SHAREPOINT UPLOAD (matching COOP app pattern) ---
     try:
+        # Check if sharepoint config exists in secrets
         if "sharepoint" not in st.secrets:
             st.warning("⚠️ SharePoint configuration not found in secrets. Skipping upload.")
             return filename, pdf_bytes
-
+        
         sharepoint_config = st.secrets["sharepoint"]
+        
+        # Verify all required keys exist
         required_keys = ["site_url", "client_id", "client_secret", "library_name"]
         missing_keys = [key for key in required_keys if key not in sharepoint_config]
         if missing_keys:
             st.warning(f"⚠️ Missing SharePoint config keys: {', '.join(missing_keys)}. Skipping upload.")
             return filename, pdf_bytes
-
+        
         site_url = sharepoint_config["site_url"]
         client_id = sharepoint_config["client_id"]
         client_secret = sharepoint_config["client_secret"]
         library_name = sharepoint_config["library_name"]
 
+
+        # Upload Excel
         st.info("📤 Uploading Excel to SharePoint...")
         success_excel = upload_file_to_sharepoint(
             site_url=site_url,
             client_id=client_id,
             client_secret=client_secret,
             folder_path=library_name,
-            file_name=excel_filename,
+            file_name=delivery_file_name,
             file_content=uploaded_file_content
         )
 
@@ -425,14 +491,15 @@ def generate_pdf_confirmation(
         import traceback
         st.code(traceback.format_exc())
 
+    # Return filename and bytes for download button
     return filename, pdf_bytes
 
-
 def load_quota_view():
+    # ✅ Load ALL rows with pagination (same as load_all_farmers)
     all_rows = []
     page_size = 1000
     last_farmer_id = None
-
+    
     while True:
         query = supabase.table("quota_view").select("*").limit(page_size).order("farmer_id")
         if last_farmer_id:
@@ -443,15 +510,24 @@ def load_quota_view():
             break
         all_rows.extend(rows)
         last_farmer_id = rows[-1]["farmer_id"]
-
+    
     df = pd.DataFrame(all_rows)
 
+    # If empty, return a typed empty frame so downstream code has expected columns
     if df.empty:
-        expected = ["farmer_id", "max_quota_kg", "total_net_weight_kg", "quota_used_pct", "quota_status"]
+        expected = [
+            "farmer_id",
+            "max_quota_kg",
+            "total_net_weight_kg",
+            "quota_used_pct",
+            "quota_status",
+        ]
         return pd.DataFrame(columns=expected)
 
+    # normalize headers
     df.columns = df.columns.str.strip().str.lower()
 
+    # map common aliases → farmer_id
     alias_map = {
         "farmerid": "farmer_id",
         "farmer-id": "farmer_id",
@@ -464,13 +540,14 @@ def load_quota_view():
             df = df.rename(columns={k: v})
             break
 
+    # Ensure required columns exist (create empty if the view lacks them)
     for col in ["max_quota_kg", "total_net_weight_kg", "quota_used_pct", "quota_status"]:
         if col not in df.columns:
             df[col] = pd.Series(dtype="float64" if col != "quota_status" else "object")
 
     return df
 
-
+# --- UI Layout ---
 def image_to_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
@@ -480,15 +557,20 @@ logo_2 = image_to_base64(LOGO_COCOA)
 
 st.markdown(f"""
     <h1 style='text-align: center; font-size: 60px; color: #1c2b4a; margin-top: 10px; margin-bottom: 10px; letter-spacing: 6px;'>EXPORT</h1>
+
     <div style="display: flex; justify-content: center; align-items: center; gap: 80px; margin-bottom: 30px;">
         <img src="data:image/png;base64,{logo_1}" alt="CloudIA" style="height: 140px;">
         <img src="data:image/png;base64,{logo_2}" alt="Cocoa Source" style="height: 180px;">
     </div>
+
     <h2 style='text-align: center; color: #1c2b4a; font-size: 30px;'>
         {t('title')}
     </h2>
 """, unsafe_allow_html=True)
 
+
+
+# --- Główna logika ---
 st.markdown(f"""
 <div style='text-align: center; padding: 20px; border-radius: 12px; background-color: #f4f7fa; border: 1px solid #dbe3ea; margin-top: 20px;'>
     <h3>{t('upload_title')}</h3>
@@ -496,19 +578,22 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+
 delivery_file = st.file_uploader(" ", type=["xlsx"], label_visibility="collapsed")
 st.caption(t("file_format_caption"))
 
 farmers_df = load_all_farmers()
 
 if delivery_file:
-    uploaded_excel_file = delivery_file
-    uploaded_df = pd.read_excel(uploaded_excel_file)
+    # --- read & normalize ----------------------------------------------------
+    uploaded_excel_file = delivery_file  # keep original file object
+    uploaded_df = pd.read_excel(uploaded_excel_file)  # read once
     uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
 
     if 'farmer_id' in uploaded_df.columns:
         uploaded_df['farmer_id'] = uploaded_df['farmer_id'].astype(str).str.strip().str.lower()
 
+    # basic schema checks
     if 'exporter' not in uploaded_df.columns:
         st.error(t("missing_exporter_column"))
         st.stop()
@@ -522,6 +607,7 @@ if delivery_file:
         st.error(t("missing_columns").format(', '.join(missing_columns)))
         st.stop()
 
+    # rename + fill
     uploaded_df.rename(columns={
         'export lot n°/connaissement': 'export_lot',
         'net weight (kg)': 'net_weight_kg',
@@ -529,17 +615,25 @@ if delivery_file:
     }, inplace=True)
     uploaded_df['purchase_date'] = uploaded_df['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
 
+    # de-dup
+    #uploaded_df = uploaded_df.drop_duplicates(
+    #    subset=['export_lot', 'exporter', 'farmer_id', 'net_weight_kg'],
+    #    keep='last'
+    #)
+
+    # empty file guard
     if uploaded_df.empty:
         st.error("❌ The uploaded file is empty or contains no valid delivery records.")
         st.stop()
 
+    # --- SPLIT: EUDR vs Non-EUDR --------------------------------------------
     uploaded_df['certification'] = uploaded_df['certification'].astype(str)
     non_eudr_mask = uploaded_df['certification'].str.contains(
         r'\bnon[-_\s]*eudr\b', flags=re.IGNORECASE, na=False
     )
 
-    df_noneudr = uploaded_df[non_eudr_mask].copy()
-    df_eudr    = uploaded_df[~non_eudr_mask].copy()
+    df_noneudr = uploaded_df[non_eudr_mask].copy()     # NIE zapisujemy do DB, NIE walidujemy
+    df_eudr    = uploaded_df[~non_eudr_mask].copy()    # TYLKO to zapisujemy i walidujemy
 
     if not df_noneudr.empty:
         st.info(
@@ -547,6 +641,7 @@ if delivery_file:
             f"They will still count toward lot totals and appear in the PDF."
         )
 
+    # --- unknown farmers check: ONLY on EUDR rows ----------------------------
     unknown_farmers = []
     if not df_eudr.empty:
         unknown_farmers = df_eudr[
@@ -558,13 +653,22 @@ if delivery_file:
         st.write(list(unknown_farmers))
         st.stop()
 
+    # --- exporter names used later -------------------------------------------
+    # For DB + RPC operations use EUDR-only exporters
     exporter_names = df_eudr['exporter'].dropna().astype(str).str.strip().unique() if not df_eudr.empty else []
 
+# --- Process each exporter separately ---
+# --- PRE-CLEAN: delete existing traceability ONLY for EUDR rows ------------
     for exporter_name in exporter_names:
         exporter_df = df_eudr[df_eudr['exporter'].str.strip() == exporter_name].copy()
         lot_numbers = exporter_df['export_lot'].unique()
         for lot in lot_numbers:
             delete_existing_delivery_rpc(lot, exporter_name)
+
+    # dalej: inserted_ok = ..., quota_df = ..., PDF...
+
+
+# ... (wszystko przed tym zostaje bez zmian)
 
     inserted_ok = True
     if not df_eudr.empty:
@@ -572,7 +676,8 @@ if delivery_file:
 
     if not inserted_ok:
         st.stop()
-
+    # Diagnoza – sprawdź czy kolumna farmer_id istnieje
+    # --- QUOTA: load & filter only by EUDR farmer_ids --------------------------
     quota_df = load_quota_view()
 
     if 'farmer_id' not in quota_df.columns:
@@ -584,10 +689,12 @@ if delivery_file:
         quota_df['farmer_id'] = quota_df['farmer_id'].astype(str).str.strip().str.lower()
         quota_df = quota_df[quota_df['farmer_id'].isin(uploaded_ids)]
     else:
+        # brak EUDR – brak rekordów do sprawdzania
         quota_df = quota_df.iloc[0:0]
 
     quota_filtered = quota_df[quota_df['quota_status'].isin(['EXCEEDED', 'WARNING'])]
 
+# --- WARNINGS table (EUDR only) --------------------------------------------
     if not quota_filtered.empty:
         st.write(t("quota_overview_title"))
 
@@ -611,6 +718,7 @@ if delivery_file:
     else:
         st.success(t("quota_ok"))
 
+
     all_ids_valid = len(unknown_farmers) == 0
     any_quota_exceeded = 'EXCEEDED' in quota_filtered['quota_status'].values
     lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
@@ -621,8 +729,10 @@ if delivery_file:
             return t("lot_too_low")
         return t("lot_within_range")
 
+
     lot_status = lot_totals.apply(check_lot_status)
     lot_status_ok = lot_status == t("lot_within_range")
+
 
     lot_status_info = pd.DataFrame({
         'export_lot': lot_totals.index,
@@ -635,6 +745,7 @@ if delivery_file:
         st.dataframe(lot_status_info[~lot_status_ok])
 
     def rollback_delivery_eudr(df_eudr_rows):
+        """Usuwa z DB tylko rekordy EUDR z bieżącego wrzutu, po eksporterze i locie."""
         if df_eudr_rows.empty:
             st.error(t("rollback_error"))
             return
@@ -644,6 +755,7 @@ if delivery_file:
                 delete_existing_delivery_rpc(lot, exporter_name)
         st.error(t("rollback_error"))
 
+    
     final_lot_totals = uploaded_df.groupby('export_lot')['net_weight_kg'].sum()
     final_exporter_names = ", ".join(sorted(set(uploaded_df['exporter'].dropna().astype(str).str.strip())))
     total_kg = int(final_lot_totals.sum())
@@ -653,6 +765,8 @@ if delivery_file:
         st.success(t("file_approved"))
         if st.button(t("generate_pdf")):
             total_kg = int(final_lot_totals.sum())
+            
+            # This now returns (filename, pdf_bytes) instead of just filename
             pdf_filename, pdf_bytes = generate_pdf_confirmation(
                 lot_numbers=final_lot_totals.index.tolist(),
                 exporter_name=final_exporter_names,
@@ -666,10 +780,12 @@ if delivery_file:
                 delivery_file_name=uploaded_excel_file.name,
                 non_eudr_total_kg=non_eudr_total_kg,
             )
+            
+            # Use the bytes directly for download (no file I/O)
             st.download_button(
-                t("download_pdf"),
-                data=pdf_bytes,
-                file_name=pdf_filename,
+                t("download_pdf"), 
+                data=pdf_bytes,  # Use the bytes directly
+                file_name=pdf_filename, 
                 mime="application/pdf"
             )
     else:
