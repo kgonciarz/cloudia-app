@@ -277,7 +277,7 @@ def save_delivery_to_supabase(df):
 def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, file_name, file_content):
     """
     Upload a file to SharePoint using Office365 library.
-    Matches the working implementation from the COOP app.
+    If a file with the same name exists, appends (2), (3), etc.
     """
     try:
         # 1) Auth
@@ -288,13 +288,12 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
         ctx.load(web, ["Title", "ServerRelativeUrl"])
         ctx.execute_query()
 
-        # 3) Get base server-relative URL (fallback to parsing site_url)
+        # 3) Get base server-relative URL
         base = web.properties.get("ServerRelativeUrl")
         if not base:
-            # e.g. "/sites/TRACAFILES"
             base = urlparse(site_url).path.rstrip("/") or "/"
 
-        # 4) Build correct folder URL (no hardcoded /sites)
+        # 4) Build correct folder URL
         folder_url = f"{base.rstrip('/')}/{str(folder_path).lstrip('/')}"
 
         # 5) Ensure folder exists / is accessible
@@ -302,7 +301,7 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
         ctx.load(target_folder, ["ServerRelativeUrl", "Name"])
         ctx.execute_query()
 
-        # 6) Read bytes (BytesIO, UploadedFile, or raw bytes)
+        # 6) Read bytes
         if hasattr(file_content, "getvalue"):
             data = file_content.getvalue()
         elif hasattr(file_content, "read"):
@@ -316,16 +315,52 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
         else:
             raise TypeError("file_content must be bytes, BytesIO, or a file-like object")
 
-        # 7) Upload
-        target_folder.upload_file(file_name, data).execute_query()
-        st.success(f"✅ Uploaded to SharePoint: {folder_url}/{file_name}")
+        # 7) Check for existing files and build a unique name
+        unique_file_name = get_unique_sharepoint_filename(ctx, folder_url, file_name)
+
+        # 8) Upload with unique name
+        target_folder.upload_file(unique_file_name, data).execute_query()
+        st.success(f"✅ Uploaded to SharePoint: {folder_url}/{unique_file_name}")
         return True
 
     except Exception as e:
         st.error(f"❌ SharePoint upload failed: {type(e).__name__}: {e}")
         return False
 
+def get_unique_sharepoint_filename(ctx, folder_url, file_name):
+    """
+    Check if file_name exists in the SharePoint folder.
+    If it does, return file_name(2), file_name(3), etc.
+    e.g. "Approval_LOT1_20250101.pdf" -> "Approval_LOT1_20250101(2).pdf"
+    """
+    import os
 
+    # Split name and extension
+    name_without_ext, ext = os.path.splitext(file_name)
+
+    # Fetch existing file names in the folder
+    try:
+        folder = ctx.web.get_folder_by_server_relative_url(folder_url)
+        files = folder.files
+        ctx.load(files, ["Name"])
+        ctx.execute_query()
+        existing_names = {f.properties["Name"].lower() for f in files}
+    except Exception as e:
+        st.warning(f"⚠️ Could not list SharePoint files to check for duplicates: {e}")
+        return file_name  # Fall back to original name if listing fails
+
+    # If no conflict, return original name
+    if file_name.lower() not in existing_names:
+        return file_name
+
+    # Find the next available counter
+    counter = 2
+    while True:
+        candidate = f"{name_without_ext}({counter}){ext}"
+        if candidate.lower() not in existing_names:
+            return candidate
+        counter += 1
+        
 def generate_pdf_confirmation(
     lot_numbers, exporter_name, farmer_count, total_kg, lot_kg_summary,
     logo_path, logo_cocoa, cooperative_names, uploaded_file_content,
