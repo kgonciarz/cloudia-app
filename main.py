@@ -429,6 +429,8 @@ def generate_pdf_confirmation(
     exporter_clean = exporter_name.replace(" ", "").replace("/", "")[:20]
     total_volume_mt = round(total_kg / 1000, 2)
     filename = f"Approval_{reference_number}_{today_str}_{exporter_clean}_{total_volume_mt}MT.pdf"
+    cooperative_clean = re.sub(r"[^\w\-]", "_", "_".join(sorted(set([c.strip() for c in cooperative_names])))[:30])
+    excel_filename = f"{reference_number}_{exporter_clean}_{cooperative_clean}_{total_volume_mt}MT.xlsx"
     
     # Save PDF to bytes (don't save to disk)
     pdf_bytes = pdf.output(dest='S').encode('latin1')
@@ -477,7 +479,7 @@ def generate_pdf_confirmation(
             client_id=client_id,
             client_secret=client_secret,
             folder_path=library_name,
-            file_name=delivery_file_name,
+            file_name=excel_filename,
             file_content=uploaded_file_content
         )
 
