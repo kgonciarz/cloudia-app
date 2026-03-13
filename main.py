@@ -329,38 +329,38 @@ def upload_file_to_sharepoint(site_url, client_id, client_secret, folder_path, f
 
 
 def get_unique_sharepoint_filename(ctx, folder_url, file_name):
-    """
-    Check if file_name exists in the SharePoint folder.
-    If it does, return file_name(2), file_name(3), etc.
-    e.g. "Approval_LOT1_20250101.pdf" -> "Approval_LOT1_20250101(2).pdf"
-    """
     import os
-
-    # Split name and extension
     name_without_ext, ext = os.path.splitext(file_name)
 
-    # Fetch existing file names in the folder
+    # Wyciąga prefix BEZ wartości MT
+    # np. "LOT123_ExporterXYZ_CoopABC_50.0MT" → "LOT123_ExporterXYZ_CoopABC"
+    identity_prefix = re.sub(r'_[\d.]+MT$', '', name_without_ext, flags=re.IGNORECASE)
+
     try:
         folder = ctx.web.get_folder_by_server_relative_url(folder_url)
         files = folder.files
         ctx.load(files, ["Name"])
         ctx.execute_query()
-        existing_names = {f.properties["Name"].lower() for f in files}
+        existing_names = [f.properties["Name"] for f in files]
     except Exception as e:
-        st.warning(f"⚠️ Could not list SharePoint files to check for duplicates: {e}")
-        return file_name  # Fall back to original name if listing fails
-
-    # If no conflict, return original name
-    if file_name.lower() not in existing_names:
+        st.warning(f"⚠️ Could not list SharePoint files: {e}")
         return file_name
 
-    # Find the next available counter
-    counter = 2
-    while True:
-        candidate = f"{name_without_ext}({counter}){ext}"
-        if candidate.lower() not in existing_names:
-            return candidate
-        counter += 1
+    # Liczy pliki z tym samym prefixem (ignorując MT i wersje)
+    matching_count = 0
+    for existing in existing_names:
+        existing_no_ext, _ = os.path.splitext(existing)
+        existing_clean = re.sub(r'\(\d+\)$', '', existing_no_ext).strip()  # usuń (2), (3)
+        existing_prefix = re.sub(r'_[\d.]+MT$', '', existing_clean, flags=re.IGNORECASE)
+
+        if existing_prefix.lower() == identity_prefix.lower():
+            matching_count += 1
+
+    if matching_count == 0:
+        return file_name
+    else:
+        version = matching_count + 1
+        return f"{name_without_ext}({version}){ext}"
 
 
 def generate_pdf_confirmation(
