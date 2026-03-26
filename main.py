@@ -137,7 +137,7 @@ st.markdown("""
 
 QUOTA_PER_HA = 800
 LOGO_PATH = "cloudia_logo.png"
-LOGO_COCOA = "cocoasourcelogo.jpg"
+LOGO_COCOA = "edelsourcelogo.jpg"
 
 @st.cache_resource
 def get_supabase() -> Client:
