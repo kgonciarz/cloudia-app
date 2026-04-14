@@ -202,9 +202,9 @@ def save_delivery_to_supabase(df):
     df_cleaned['farm_id'] = df_cleaned['farm_id'].str.strip().str.lower()
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
     # Najpierw zamień na string, żeby nie było błędów typu "float" -> np. nan
-    df_cleaned['certification'] = df_cleaned['certification'].astype(str)
-
-# Następnie wszystko, co wygląda na puste/N/A/nan, zamień na None
+    df_cleaned['certification'] = df_cleaned['certification'].where(
+        pd.notna(df_cleaned['certification']), other=None
+    )
     df_cleaned['certification'] = df_cleaned['certification'].replace(
         ['N/A', 'n/a', 'na', 'NA', 'NaN', 'nan', '', 'None'], None
     )
