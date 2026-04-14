@@ -202,16 +202,12 @@ def save_delivery_to_supabase(df):
     df_cleaned['farm_id'] = df_cleaned['farm_id'].str.strip().str.lower()
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
     # Najpierw zamień na string, żeby nie było błędów typu "float" -> np. nan
-    df_cleaned['certification'] = df_cleaned['certification'].where(
-        pd.notna(df_cleaned['certification']), other=None
+# Replace the entire certification block with this:
+    df_cleaned['certification'] = df_cleaned['certification'].apply(
+        lambda x: None if (x is None or (isinstance(x, float) and math.isnan(x)) 
+                        or str(x).strip().lower() in ['nan', 'n/a', 'na', 'none', '']) 
+                else str(x).strip()
     )
-    df_cleaned['certification'] = df_cleaned['certification'].replace(
-        ['N/A', 'n/a', 'na', 'NA', 'NaN', 'nan', '', 'None'], None
-    )
-
-
-
-
 
     # ✅ Updated Excel date converter INSIDE this function
     def excel_date_to_date(excel_date):
