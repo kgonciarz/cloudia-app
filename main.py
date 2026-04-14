@@ -186,11 +186,12 @@ def save_delivery_to_supabase(df):
         'date of purchase from cooperative': 'purchase_date',
         'certification': 'certification',
         'farmer_id': 'farmer_id',
+        'farm_id': 'farm_id',
         'net weight (kg)': 'net_weight_kg',
         'exporter': 'exporter'
     }
     df = df.rename(columns=column_mapping)
-    required_columns = ['export_lot', 'exporter', 'farmer_id', 'net_weight_kg']
+    required_columns = ['export_lot', 'exporter', 'farmer_id', 'farm_id', 'net_weight_kg']
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         st.error(f"{t('missing_columns')}: {', '.join(missing_columns)}")
@@ -198,6 +199,7 @@ def save_delivery_to_supabase(df):
 
     df_cleaned = df.copy()
     df_cleaned['farmer_id'] = df_cleaned['farmer_id'].str.strip().str.lower()
+    df_cleaned['farm_id'] = df_cleaned['farm_id'].str.strip().str.lower()
     df_cleaned['purchase_date'] = df_cleaned['purchase_date'].fillna(datetime.today().strftime('%Y-%m-%d'))
     # Najpierw zamień na string, żeby nie było błędów typu "float" -> np. nan
     df_cleaned['certification'] = df_cleaned['certification'].astype(str)
