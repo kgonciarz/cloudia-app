@@ -708,7 +708,7 @@ if delivery_file:
 
         styled_quota = quota_filtered[[
             'farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'quota_used_pct', 'quota_status'
-        ]].style.applymap(highlight_status, subset=['quota_status']).format({
+        ]].style.map(highlight_status, subset=['quota_status']).format({
             'max_quota_kg': '{:.0f}',
             'total_net_weight_kg': '{:.0f}',
             'quota_used_pct': '{:.2f}'
