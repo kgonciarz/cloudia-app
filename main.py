@@ -658,18 +658,77 @@ if delivery_file:
     # For DB + RPC operations use EUDR-only exporters
     exporter_names = df_eudr['exporter'].dropna().astype(str).str.strip().unique() if not df_eudr.empty else []
 
-# --- Process each exporter separately ---
-# --- PRE-CLEAN: delete existing traceability ONLY for EUDR rows ------------
+    # --- PRE-SAVE QUOTA CHECK: block if any farmer would exceed (before touching DB) ---
+    if not df_eudr.empty:
+        quota_precheck = load_quota_view()
+        quota_precheck['farmer_id'] = quota_precheck['farmer_id'].astype(str).str.strip().str.lower()
+
+        upload_weights = df_eudr.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
+        upload_weights.columns = ['farmer_id', 'upload_weight_kg']
+
+        quota_sim = quota_precheck[['farmer_id', 'max_quota_kg', 'total_net_weight_kg']].merge(
+            upload_weights, on='farmer_id', how='right'
+        )
+        quota_sim['total_net_weight_kg'] = quota_sim['total_net_weight_kg'].fillna(0)
+        quota_sim['max_quota_kg'] = quota_sim['max_quota_kg'].fillna(0)
+
+        # Subtract kg already in DB for these lot+exporter pairs so re-uploads aren't double-counted
+        try:
+            lots_in_upload = df_eudr['export_lot'].astype(str).str.strip().unique().tolist()
+            exporters_in_upload = df_eudr['exporter'].astype(str).str.strip().unique().tolist()
+            existing_res = (
+                supabase.table("traceability")
+                .select("farmer_id, net_weight_kg, export_lot, exporter")
+                .in_("export_lot", lots_in_upload)
+                .in_("exporter", exporters_in_upload)
+                .execute()
+            )
+            existing_rows = existing_res.data or []
+        except Exception:
+            existing_rows = []
+
+        if existing_rows:
+            existing_df = pd.DataFrame(existing_rows)
+            existing_df['farmer_id'] = existing_df['farmer_id'].astype(str).str.strip().str.lower()
+            existing_df['export_lot'] = existing_df['export_lot'].astype(str).str.strip()
+            existing_df['exporter'] = existing_df['exporter'].astype(str).str.strip()
+
+            upload_pairs_df = df_eudr[['export_lot', 'exporter']].copy()
+            upload_pairs_df['export_lot'] = upload_pairs_df['export_lot'].astype(str).str.strip()
+            upload_pairs_df['exporter'] = upload_pairs_df['exporter'].astype(str).str.strip()
+            upload_pairs_df = upload_pairs_df.drop_duplicates()
+
+            existing_df = existing_df.merge(upload_pairs_df, on=['export_lot', 'exporter'], how='inner')
+            existing_per_farmer = existing_df.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
+            existing_per_farmer.columns = ['farmer_id', 'existing_lot_kg']
+            quota_sim = quota_sim.merge(existing_per_farmer, on='farmer_id', how='left')
+            quota_sim['existing_lot_kg'] = quota_sim['existing_lot_kg'].fillna(0)
+            quota_sim['total_net_weight_kg'] = (
+                quota_sim['total_net_weight_kg'] - quota_sim['existing_lot_kg']
+            ).clip(lower=0)
+
+        quota_sim['simulated_total_kg'] = quota_sim['total_net_weight_kg'] + quota_sim['upload_weight_kg']
+
+        would_exceed = quota_sim[quota_sim['simulated_total_kg'] > quota_sim['max_quota_kg']]
+
+        if not would_exceed.empty:
+            st.error("❌ Upload blocked: the following farmers would exceed their quota with this delivery:")
+            st.dataframe(
+                would_exceed[['farmer_id', 'max_quota_kg', 'total_net_weight_kg', 'upload_weight_kg', 'simulated_total_kg']].rename(columns={
+                    'max_quota_kg': 'quota_limit_kg',
+                    'total_net_weight_kg': 'already_delivered_kg',
+                    'upload_weight_kg': 'this_upload_kg',
+                    'simulated_total_kg': 'would_be_total_kg'
+                })
+            )
+            st.stop()
+
+    # --- PRE-CLEAN: delete existing records only after quota check passes ---
     for exporter_name in exporter_names:
         exporter_df = df_eudr[df_eudr['exporter'].str.strip() == exporter_name].copy()
         lot_numbers = exporter_df['export_lot'].unique()
         for lot in lot_numbers:
             delete_existing_delivery_rpc(lot, exporter_name)
-
-    # dalej: inserted_ok = ..., quota_df = ..., PDF...
-
-
-# ... (wszystko przed tym zostaje bez zmian)
 
     inserted_ok = True
     if not df_eudr.empty:
