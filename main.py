@@ -666,29 +666,25 @@ if delivery_file:
         upload_weights = df_eudr.groupby('farmer_id')['net_weight_kg'].sum().reset_index()
         upload_weights.columns = ['farmer_id', 'upload_weight_kg']
 
-        # Compute max_quota_kg directly from farmers_df.area_ha * QUOTA_PER_HA
-        # instead of relying on quota_view.max_quota_kg, which has been observed to
-        # return 0 for farmers with fractional area_ha (e.g. 0.2 ha) — likely an
-        # integer cast inside the view. Computing it here is also robust against
-        # new farmers who may be absent from the view (inner-join behaviour).
-        area_col = next(
-            (c for c in ('area_ha', 'area', 'hectares', 'surface', 'surface_ha')
-             if c in farmers_df.columns),
-            None,
-        )
-        if area_col is not None:
-            farmers_quota = farmers_df[['farmer_id', area_col]].copy()
-            farmers_quota[area_col] = pd.to_numeric(farmers_quota[area_col], errors='coerce').fillna(0)
-            farmers_quota = farmers_quota.groupby('farmer_id', as_index=False)[area_col].sum()
-            farmers_quota['max_quota_kg'] = farmers_quota[area_col] * QUOTA_PER_HA
-            farmers_quota = farmers_quota[['farmer_id', 'max_quota_kg']]
+        # Read max_quota_kg directly from farmers_df (the farmers table) instead
+        # of from quota_view. The view uses an INNER JOIN against traceability,
+        # so first-time-delivery farmers are missing from it — which previously
+        # caused max_quota_kg to fall through to fillna(0) and block the upload.
+        # max_quota_kg is stored per-farmer at import (not always area_ha * 800),
+        # so we use the stored value as-is.
+        if 'max_quota_kg' in farmers_df.columns:
+            farmers_quota = farmers_df[['farmer_id', 'max_quota_kg']].copy()
+            farmers_quota['max_quota_kg'] = pd.to_numeric(
+                farmers_quota['max_quota_kg'], errors='coerce'
+            ).fillna(0)
+            farmers_quota = farmers_quota.groupby('farmer_id', as_index=False)['max_quota_kg'].max()
             quota_sim = upload_weights.merge(farmers_quota, on='farmer_id', how='left')
             quota_sim = quota_sim.merge(
                 quota_precheck[['farmer_id', 'total_net_weight_kg']],
                 on='farmer_id', how='left'
             )
         else:
-            # Fallback to the view if no area column is found on farmers
+            # Fallback to the view if farmers table doesn't expose max_quota_kg
             quota_sim = quota_precheck[['farmer_id', 'max_quota_kg', 'total_net_weight_kg']].merge(
                 upload_weights, on='farmer_id', how='right'
             )
